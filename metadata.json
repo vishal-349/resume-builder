@@ -1,0 +1,6 @@
+{
+  "name": "Resume Builder",
+  "description": "A premium, local-first Resume Builder with 25 customizable templates, ATS scoring, resume import, custom sections, and export capabilities.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

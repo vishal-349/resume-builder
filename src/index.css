@@ -1,0 +1,119 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;505;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Grotesk:wght@400;500;700&family=Outfit:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-slate-105: #f1f5f9;
+  --color-slate-150: #eef1f6;
+  --color-slate-450: #788296;
+  --color-slate-550: #4a5568;
+  --color-slate-655: #334155;
+  --color-red-650: #be123c;
+  --color-indigo-505: #6366f1;
+  --color-indigo-705: #4f46e5;
+  --text-xxs: 0.6875rem;
+  --text-xxxxs: 0.625rem;
+  --font-size-xxxxs: 0.625rem;
+  --shadow-xxxxs: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+}
+
+@layer base {
+  @media print {
+    /* Zero out native browser-imposed margin spacing */
+    @page {
+      margin: 0px !important;
+      size: A4 portrait !important;
+    }
+
+    /* Force background rendering and reset outer scroll boundaries */
+    html, body {
+      background: white !important;
+      color: black !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 210mm !important;
+      height: auto !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    #root {
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 210mm !important;
+      height: auto !important;
+      overflow: visible !important;
+    }
+
+    body > *:not(#print-only-container) {
+      display: none !important;
+    }
+
+    .no-print {
+      display: none !important;
+    }
+
+    #print-only-container {
+      display: block !important;
+      position: static !important;
+      width: 210mm !important;
+      z-index: 9999999 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      background: white !important;
+    }
+
+    /* Force pages to sit securely within calculated boundaries */
+    .a4-page {
+      width: 210mm !important;
+      height: 297mm !important;
+      min-height: 297mm !important;
+      max-height: 297mm !important;
+      
+      /* Eliminate border layers or visual desktop shadows */
+      border: none !important;
+      box-shadow: none !important;
+      border-radius: 0 !important;
+      outline: none !important;
+      
+      /* Enable flow constraints and prevent split overlapping in print engine */
+      display: flex !important;
+      flex-direction: column !important;
+      justify-content: space-between !important;
+      page-break-after: always !important;
+      break-after: page !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+      
+      margin: 0 !important;
+      box-sizing: border-box !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    /* Grid layout overrides for grid layouts (like bento column presets) */
+    .a4-page .grid {
+      display: grid !important;
+    }
+
+    /* Remove gaps between page containers and reset scale matrices */
+    #resume-pages-container {
+      transform: none !important;
+      position: relative !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 210mm !important;
+      gap: 0 !important;
+    }
+  }
+}
+
+/* Base custom visual helpers */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
