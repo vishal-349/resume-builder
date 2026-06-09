@@ -64,10 +64,10 @@ export default function StatsDashboard({ resumes, activeResume, onRefresh }: Sta
           onRefresh();
           showToast('Database backup restored successfully!');
         } else {
-          alert('Invalid file format. Ensure format is backup resume JSON.');
+          showToast('⚠️ Invalid file format. Ensure format is backup resume JSON.');
         }
       } catch (err) {
-        alert('Failed parsing backup JSON.');
+        showToast('⚠️ Failed parsing backup JSON.');
       }
     };
     reader.readAsText(file);

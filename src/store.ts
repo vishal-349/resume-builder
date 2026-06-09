@@ -154,7 +154,7 @@ export function createDemoResume(lang: LanguageCode = 'en'): Resume {
       id: 'exp-1',
       company: 'CloudScale Technologies Inc.',
       position: 'Principal Platform Architect',
-      startDate: '2021-02',
+      startDate: '02-2021',
       endDate: '',
       current: true,
       location: 'San Francisco, CA',
@@ -164,8 +164,8 @@ export function createDemoResume(lang: LanguageCode = 'en'): Resume {
       id: 'exp-2',
       company: 'BuildFlow Systems',
       position: 'Senior Full Stack Engineer',
-      startDate: '2018-06',
-      endDate: '2021-01',
+      startDate: '06-2018',
+      endDate: '01-2021',
       current: false,
       location: 'New York, NY',
       description: '- Engineered responsive real-time data visualizer dashboard using D3.js, React, and server-sent events.\n- Authored customizable parsing microservice processing millions of structural business documents daily.\n- Mentored and trained 8 junior developers on TypeScript best practices and reliable unit testing coverage.'
@@ -179,8 +179,8 @@ export function createDemoResume(lang: LanguageCode = 'en'): Resume {
       institution: 'Stanford University',
       degree: 'Master of Science',
       fieldOfStudy: 'Computer Science',
-      startDate: '2016-09',
-      endDate: '2018-05',
+      startDate: '09-2016',
+      endDate: '05-2018',
       current: false,
       grade: 'GPA 3.92',
       description: 'Specialization in Distributed Systems, Graphics, and Advanced Web Security standards.'
@@ -204,7 +204,7 @@ export function createDemoResume(lang: LanguageCode = 'en'): Resume {
       name: 'OmniStream Engine',
       role: 'Lead Designer & Core Contributor',
       url: 'github.com/johndoe/omnistream',
-      startDate: '2022-01',
+      startDate: '01-2022',
       endDate: '',
       current: true,
       description: 'An open-source reactive data-stream aggregator written entirely in modern TypeScript, handling complex event correlations at sub-millisecond intervals.'
@@ -213,12 +213,12 @@ export function createDemoResume(lang: LanguageCode = 'en'): Resume {
 
   // Certifications
   base.sections[6].items = [
-    { id: 'ct-1', name: 'AWS Certified Solutions Architect – Professional', issuer: 'Amazon Web Services', date: '2023-04' }
+    { id: 'ct-1', name: 'AWS Certified Solutions Architect – Professional', issuer: 'Amazon Web Services', date: '04-2023' }
   ];
 
   // Awards
   base.sections[7].items = [
-    { id: 'aw-1', title: 'Outstanding Engineering Achievement Award', issuer: 'CloudScale Tech', date: '2024-11', description: 'Awarded for lead architecting the Cloud Virtualization layer saving $1.2M annually.' }
+    { id: 'aw-1', title: 'Outstanding Engineering Achievement Award', issuer: 'CloudScale Tech', date: '11-2024', description: 'Awarded for lead architecting the Cloud Virtualization layer saving $1.2M annually.' }
   ];
 
   // Languages
@@ -233,7 +233,7 @@ export function createDemoResume(lang: LanguageCode = 'en'): Resume {
       id: 'vl-1',
       organization: 'Code For America',
       role: 'Volunteer Staff Developer',
-      startDate: '2020-01',
+      startDate: '01-2020',
       endDate: '',
       current: true,
       description: 'Maintained and refined open municipal database access portals for city transit, boosting local web engagement by 60%.'
@@ -242,7 +242,7 @@ export function createDemoResume(lang: LanguageCode = 'en'): Resume {
 
   // Publications
   base.sections[10].items = [
-    { id: 'pb-1', title: 'Scaling Modern Reactive Single Page Frameworks', publisher: 'IEEE Software Engineering Journal', date: '2022-08', url: 'https://ieee-se-journal.example.com/scaling-react', description: 'A study detailing virtual DOM rendering optimizations under heavy constant network payloads.' }
+    { id: 'pb-1', title: 'Scaling Modern Reactive Single Page Frameworks', publisher: 'IEEE Software Engineering Journal', date: '08-2022', url: 'https://ieee-se-journal.example.com/scaling-react', description: 'A study detailing virtual DOM rendering optimizations under heavy constant network payloads.' }
   ];
 
   // References
@@ -448,10 +448,346 @@ export class ResumeStoreManager {
   }
 
   public setTemplateId(tid: string) {
-    this.updateActiveResume((resume) => ({
-      ...resume,
-      templateId: tid,
-    }));
+    this.updateActiveResume((resume) => {
+      // Create template style mapping to instantly style the resume beautifully
+      let overrides: Partial<ResumeStyles> = {};
+      switch (tid) {
+        case 'ats-friendly':
+          overrides = {
+            primaryColor: '#334155',
+            textColor: '#1e293b',
+            backgroundColor: '#ffffff',
+            fontFamily: 'sans',
+            fontSize: 'sm',
+            spacing: 'normal',
+            dividerStyle: 'solid',
+            sectionHeadingSize: 'sm',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+        case 'functional-two-col':
+          overrides = {
+            primaryColor: '#4f46e5',
+            textColor: '#111827',
+            backgroundColor: '#ffffff',
+            fontFamily: 'sans',
+            fontSize: 'md',
+            spacing: 'compact',
+            dividerStyle: 'none',
+            sectionHeadingSize: 'md',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+        case 'executive-classic':
+          overrides = {
+            primaryColor: '#111827',
+            textColor: '#1f2937',
+            backgroundColor: '#ffffff',
+            fontFamily: 'serif',
+            fontSize: 'md',
+            spacing: 'relaxed',
+            dividerStyle: 'double',
+            sectionHeadingSize: 'lg',
+            sectionHeadingAlignment: 'center',
+          };
+          break;
+        case 'minimalist-pro':
+          overrides = {
+            primaryColor: '#57534e',
+            textColor: '#1c1917',
+            backgroundColor: '#ffffff',
+            fontFamily: 'sans',
+            fontSize: 'md',
+            spacing: 'compact',
+            dividerStyle: 'none',
+            sectionHeadingSize: 'sm',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+        case 'corporate-navy':
+          overrides = {
+            primaryColor: '#1e3a8a',
+            textColor: '#1f2937',
+            backgroundColor: '#ffffff',
+            fontFamily: 'sans',
+            fontSize: 'md',
+            spacing: 'normal',
+            dividerStyle: 'thick',
+            sectionHeadingSize: 'md',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+        case 'elegant-playfair':
+          overrides = {
+            primaryColor: '#9f1239',
+            textColor: '#374151',
+            backgroundColor: '#ffffff',
+            fontFamily: 'serif',
+            fontSize: 'md',
+            spacing: 'relaxed',
+            dividerStyle: 'solid',
+            sectionHeadingSize: 'lg',
+            sectionHeadingAlignment: 'center',
+          };
+          break;
+        case 'creative-bento':
+          overrides = {
+            primaryColor: '#d97706',
+            textColor: '#1f2937',
+            backgroundColor: '#ffffff',
+            fontFamily: 'sans',
+            fontSize: 'md',
+            spacing: 'compact',
+            dividerStyle: 'none',
+            sectionHeadingSize: 'md',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+        case 'developer-terminal':
+          overrides = {
+            primaryColor: '#059669',
+            textColor: '#e2e8f0',
+            backgroundColor: '#0f172a',
+            fontFamily: 'mono',
+            fontSize: 'sm',
+            spacing: 'compact',
+            dividerStyle: 'none',
+            sectionHeadingSize: 'sm',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+        case 'designer-vintage':
+          overrides = {
+            primaryColor: '#be123c',
+            textColor: '#374151',
+            backgroundColor: '#fafaf9',
+            fontFamily: 'serif',
+            fontSize: 'md',
+            spacing: 'relaxed',
+            dividerStyle: 'none',
+            sectionHeadingSize: 'lg',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+        case 'marketing-impact':
+          overrides = {
+            primaryColor: '#7c3aed',
+            textColor: '#111827',
+            backgroundColor: '#ffffff',
+            fontFamily: 'sans',
+            fontSize: 'lg',
+            spacing: 'normal',
+            dividerStyle: 'solid',
+            sectionHeadingSize: 'lg',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+        case 'product-matrix':
+          overrides = {
+            primaryColor: '#0d9488',
+            textColor: '#111827',
+            backgroundColor: '#ffffff',
+            fontFamily: 'sans',
+            fontSize: 'sm',
+            spacing: 'compact',
+            dividerStyle: 'thick',
+            sectionHeadingSize: 'md',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+        case 'academic-cv':
+          overrides = {
+            primaryColor: '#1e293b',
+            textColor: '#0f172a',
+            backgroundColor: '#ffffff',
+            fontFamily: 'serif',
+            fontSize: 'sm',
+            spacing: 'normal',
+            dividerStyle: 'solid',
+            sectionHeadingSize: 'sm',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+        case 'compact-onepage':
+          overrides = {
+            primaryColor: '#334155',
+            textColor: '#111827',
+            backgroundColor: '#ffffff',
+            fontFamily: 'sans',
+            fontSize: 'sm',
+            spacing: 'compact',
+            dividerStyle: 'solid',
+            sectionHeadingSize: 'sm',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+        case 'international-visa':
+          overrides = {
+            primaryColor: '#1d4ed8',
+            textColor: '#1e293b',
+            backgroundColor: '#ffffff',
+            fontFamily: 'sans',
+            fontSize: 'md',
+            spacing: 'normal',
+            dividerStyle: 'solid',
+            sectionHeadingSize: 'md',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+        case 'fresher-academic':
+          overrides = {
+            primaryColor: '#0e7490',
+            textColor: '#1f2937',
+            backgroundColor: '#ffffff',
+            fontFamily: 'sans',
+            fontSize: 'md',
+            spacing: 'normal',
+            dividerStyle: 'dashed',
+            sectionHeadingSize: 'md',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+        case 'startup-hybrid':
+          overrides = {
+            primaryColor: '#4338ca',
+            textColor: '#111827',
+            backgroundColor: '#ffffff',
+            fontFamily: 'sans',
+            fontSize: 'md',
+            spacing: 'compact',
+            dividerStyle: 'none',
+            sectionHeadingSize: 'md',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+        case 'luxury-regal':
+          overrides = {
+            primaryColor: '#9d174d',
+            textColor: '#111827',
+            backgroundColor: '#ffffff',
+            fontFamily: 'serif',
+            fontSize: 'md',
+            spacing: 'relaxed',
+            dividerStyle: 'double',
+            sectionHeadingSize: 'lg',
+            sectionHeadingAlignment: 'center',
+          };
+          break;
+        case 'premium-shadow':
+          overrides = {
+            primaryColor: '#0f172a',
+            textColor: '#334155',
+            backgroundColor: '#f8fafc',
+            fontFamily: 'sans',
+            fontSize: 'md',
+            spacing: 'normal',
+            dividerStyle: 'solid',
+            sectionHeadingSize: 'md',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+        case 'senior-competency':
+          overrides = {
+            primaryColor: '#0f172a',
+            textColor: '#1e293b',
+            backgroundColor: '#ffffff',
+            fontFamily: 'sans',
+            fontSize: 'md',
+            spacing: 'normal',
+            dividerStyle: 'thick',
+            sectionHeadingSize: 'lg',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+        case 'business-navy':
+          overrides = {
+            primaryColor: '#1e3a8a',
+            textColor: '#111827',
+            backgroundColor: '#ffffff',
+            fontFamily: 'sans',
+            fontSize: 'md',
+            spacing: 'normal',
+            dividerStyle: 'solid',
+            sectionHeadingSize: 'md',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+        case 'consultant-bento':
+          overrides = {
+            primaryColor: '#86198f',
+            textColor: '#1e293b',
+            backgroundColor: '#ffffff',
+            fontFamily: 'sans',
+            fontSize: 'md',
+            spacing: 'compact',
+            dividerStyle: 'none',
+            sectionHeadingSize: 'md',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+        case 'technical-spec':
+          overrides = {
+            primaryColor: '#065f46',
+            textColor: '#111827',
+            backgroundColor: '#ffffff',
+            fontFamily: 'mono',
+            fontSize: 'sm',
+            spacing: 'compact',
+            dividerStyle: 'dashed',
+            sectionHeadingSize: 'sm',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+        case 'engineering-grid':
+          overrides = {
+            primaryColor: '#991b1b',
+            textColor: '#111827',
+            backgroundColor: '#ffffff',
+            fontFamily: 'sans',
+            fontSize: 'md',
+            spacing: 'compact',
+            dividerStyle: 'solid',
+            sectionHeadingSize: 'md',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+        case 'management-board':
+          overrides = {
+            primaryColor: '#854d0e',
+            textColor: '#111827',
+            backgroundColor: '#ffffff',
+            fontFamily: 'sans',
+            fontSize: 'md',
+            spacing: 'normal',
+            dividerStyle: 'solid',
+            sectionHeadingSize: 'lg',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+        case 'cohesive-portfolio':
+          overrides = {
+            primaryColor: '#be123c',
+            textColor: '#111827',
+            backgroundColor: '#ffffff',
+            fontFamily: 'sans',
+            fontSize: 'lg',
+            spacing: 'normal',
+            dividerStyle: 'solid',
+            sectionHeadingSize: 'lg',
+            sectionHeadingAlignment: 'left',
+          };
+          break;
+      }
+
+      return {
+        ...resume,
+        templateId: tid,
+        styles: {
+          ...resume.styles,
+          ...overrides,
+        }
+      };
+    });
   }
 
   public updateStyles(styles: Partial<ResumeStyles>) {
@@ -546,6 +882,25 @@ export class ResumeStoreManager {
     });
   }
 
+  public addStandardSection(type: SectionType, name: string) {
+    this.updateActiveResume((resume) => {
+      if (resume.sections.some(s => s.type === type)) {
+        return resume;
+      }
+      const newSection: ResumeSection = {
+        id: type,
+        type,
+        name,
+        visible: true,
+        items: type === 'summary' ? [''] : []
+      };
+      return {
+        ...resume,
+        sections: [...resume.sections, newSection],
+      };
+    });
+  }
+
   public deleteSection(sectionId: string) {
     this.updateActiveResume((resume) => ({
       ...resume,
@@ -615,6 +970,13 @@ export class ResumeStoreManager {
     this.pushToHistory();
     this.state.resumes = resumesData;
     this.state.activeResumeId = activeId || (resumesData.length > 0 ? resumesData[0].id : null);
+    this.emit();
+  }
+
+  public addImportedResume(resume: Resume) {
+    this.pushToHistory();
+    this.state.resumes.push(resume);
+    this.state.activeResumeId = resume.id;
     this.emit();
   }
 

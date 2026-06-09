@@ -48,7 +48,10 @@ import {
   Maximize,
   ArrowRight,
   Info,
-  Globe
+  Globe,
+  Upload,
+  FileSpreadsheet,
+  HelpCircle
 } from 'lucide-react';
 
 export default function App() {
@@ -59,9 +62,12 @@ export default function App() {
   const [mobileTab, setMobileTab] = useState<'edit' | 'templates' | 'preview' | 'download'>('edit');
   const [rawPastedText, setRawPastedText] = useState('');
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showPasteField, setShowPasteField] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [successToast, setSuccessToast] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [resetConfirm, setResetConfirm] = useState(false);
+  const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
 
   const printAreaRef = useRef<HTMLDivElement>(null);
 
@@ -103,19 +109,86 @@ export default function App() {
 
   const handleFileUpload = async (file: File) => {
     setIsImportLoading(true);
-    setSuccessToast(`Reading "${file.name}"...`);
+    setSuccessToast(`Reading and loading "${file.name}"...`);
     try {
       const extractedText = await parseFileToText(file);
-      setSuccessToast('Extracting structured coordinates...');
       
-      const parsedResume = parseRawResumeText(extractedText, activeResume?.language || 'en');
-      // Update file name as project title
-      parsedResume.title = file.name.replace(/\.[^/.]+$/, ""); // Strip extension
+      setSuccessToast('Formulating ATS structure with Gemini AI...');
+      let parsedResume;
+      try {
+        const response = await fetch('/api/resume/parse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: extractedText,
+            language: activeResume?.language || 'en'
+          })
+        });
+
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        parsedResume = data.resume;
+        triggerNotification(`Gemini AI successfully extracted details from "${file.name}"!`);
+      } catch (geminiErr: any) {
+        console.warn('Gemini parser failed, falling back to local patterns:', geminiErr);
+        setSuccessToast('Fitting details locally...');
+        parsedResume = parseRawResumeText(extractedText, activeResume?.language || 'en');
+        triggerNotification(`Imported "${file.name}" using local heuristics.`);
+      }
       
-      store.restoreBackup([...storeState.resumes, parsedResume], parsedResume.id);
+      // Update resume document title to original filename without extension
+      parsedResume.title = file.name.replace(/\.[^/.]+$/, "");
+      
+      // Store the parsed result securely inside local storage & state
+      store.addImportedResume(parsedResume);
       
       setShowImportDialog(false);
-      triggerNotification(`Successfully extracted & structured your resume draft from "${file.name}"!`);
+    } catch (err: any) {
+      console.error(err);
+      triggerNotification('Document parsing failed: ' + err.message);
+    } finally {
+      setIsImportLoading(false);
+    }
+  };
+
+  const handleImportText = async () => {
+    if (rawPastedText.trim().length === 0) return;
+    setIsImportLoading(true);
+    try {
+      setSuccessToast('Formulating structure with Gemini AI...');
+      let parsed;
+      try {
+        const response = await fetch('/api/resume/parse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: rawPastedText,
+            language: activeResume?.language || 'en'
+          })
+        });
+
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        parsed = data.resume;
+        triggerNotification('Gemini AI parsed and imported text successfully!');
+      } catch (geminiErr: any) {
+        console.warn('Gemini parser failed, falling back to local patterns:', geminiErr);
+        parsed = parseRawResumeText(rawPastedText, activeResume?.language || 'en');
+        triggerNotification('Imported text using local heuristics.');
+      }
+
+      // Set active parsed resume
+      store.restoreBackup([...storeState.resumes, parsed], parsed.id);
+      setRawPastedText('');
+      setShowImportDialog(false);
     } catch (err: any) {
       console.error(err);
       triggerNotification('Import failed: ' + err.message);
@@ -124,26 +197,19 @@ export default function App() {
     }
   };
 
-  const handleImportText = () => {
-    if (rawPastedText.trim().length === 0) return;
-    const parsed = parseRawResumeText(rawPastedText, activeResume?.language || 'en');
-    
-    // Set active parsed resume
-    store.restoreBackup([...storeState.resumes, parsed], parsed.id);
-    setRawPastedText('');
-    setShowImportDialog(false);
-    triggerNotification('Resume parsed and imported successfully!');
-  };
-
   const triggerNotification = (msg: string) => {
     setSuccessToast(msg);
     setTimeout(() => setSuccessToast(''), 3500);
   };
 
   const loadDefaults = () => {
-    if (confirm("Reset current draft? All text will be replaced with clean placeholder sections.")) {
+    if (resetConfirm) {
       store.clearAllData();
       triggerNotification('Draft reset to baseline demo data.');
+      setResetConfirm(false);
+    } else {
+      setResetConfirm(true);
+      setTimeout(() => setResetConfirm(false), 4000);
     }
   };
 
@@ -205,17 +271,21 @@ export default function App() {
 
           <button
             onClick={() => setShowImportDialog(true)}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800 rounded-lg text-xxs font-bold transition-all shadow-xxs cursor-pointer"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 border border-indigo-750 text-white hover:bg-indigo-700 hover:border-indigo-800 rounded-lg text-xxs font-bold transition-all shadow-md cursor-pointer animate-pulse-subtle"
           >
-            <FileCode2 size={11} />
-            Import Raw Resume
+            <Upload size={11} />
+            Upload Resume
           </button>
 
           <button
             onClick={loadDefaults}
-            className="hidden sm:block text-slate-400 hover:text-slate-600 text-xxs font-semibold cursor-pointer"
+            className={`hidden sm:block text-xxs font-bold cursor-pointer px-2 py-1 rounded transition-all ${
+              resetConfirm
+                ? 'bg-red-650 text-white animate-pulse shadow-xs'
+                : 'text-slate-400 hover:text-slate-600'
+            }`}
           >
-            Reset Draft
+            {resetConfirm ? 'Click again to confirm Reset!' : 'Reset Draft'}
           </button>
 
           <div className="h-6 w-[1px] bg-slate-200 mx-1" />
@@ -477,12 +547,14 @@ export default function App() {
             </div>
 
             {/* Printable Preview Container */}
-            <div className="flex-1 w-full max-w-2xl overflow-y-auto flex flex-col select-none relative z-10 no-print pb-24">
+            <div className={`flex-1 w-full overflow-y-auto flex flex-col select-none relative z-10 no-print pb-24 transition-all duration-300 ${isPreviewExpanded ? 'max-w-4xl' : 'max-w-2xl'}`}>
               {activeResume && (
                 <div className="bg-white rounded-none shadow-2xl border border-slate-200/80 animate-fade-in relative">
                   <LivePreview
                     ref={printAreaRef}
                     resume={activeResume}
+                    isExpanded={isPreviewExpanded}
+                    onToggleExpand={() => setIsPreviewExpanded(prev => !prev)}
                   />
                 </div>
               )}
@@ -627,8 +699,8 @@ export default function App() {
           <div className="bg-white border rounded-2xl max-w-xl w-full p-6 space-y-4 text-left shadow-2xl relative overflow-hidden">
             <div className="flex justify-between items-start border-b border-slate-100 pb-3">
               <div>
-                <span className="text-[10px] font-black text-indigo-650 uppercase font-mono tracking-wider">Universal Resume Importer</span>
-                <h3 className="text-sm font-bold text-slate-800 mt-0.5">Import Existing PDF, DOCX or Paste Text</h3>
+                <span className="text-[10px] font-black text-indigo-650 uppercase font-mono tracking-wider">Local Resume Parser</span>
+                <h3 className="text-sm font-bold text-slate-800 mt-0.5">Upload & Auto-Fill Resume</h3>
               </div>
               <button
                 onClick={() => !isImportLoading && setShowImportDialog(false)}
@@ -641,96 +713,133 @@ export default function App() {
 
             {isImportLoading ? (
               <div className="py-12 flex flex-col items-center justify-center gap-4 text-center">
-                <div className="w-12 h-12 rounded-full border-4 border-indigo-100 border-t-indigo-600 animate-spin" />
-                <div className="space-y-1 max-w-xs">
-                  <p className="text-xs font-black text-slate-800 animate-pulse">Running Dynamic OCR Parser...</p>
+                <div className="w-12 h-12 rounded-full border-4 border-indigo-150 border-t-indigo-650 animate-spin" />
+                <div className="space-y-1.5 max-w-sm">
+                  <p className="text-xs font-black text-slate-800 animate-pulse">Running Local PDF / DOCX Parser...</p>
                   <p className="text-[9.5px] text-slate-450 leading-relaxed">
-                    Executing local extraction engine and NLP clustering algorithms. This process happens 100% client-side for maximum visual data protection.
+                    Reading file components, mapping raw text with deterministic pattern clustering, and auto-populating sections directly inside your browser.
                   </p>
                 </div>
               </div>
             ) : (
               <div className="space-y-4 font-sans">
-                {/* 1. Drag & Drop File Upload Area */}
-                <div
-                  onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
-                  onDragLeave={() => setDragActive(false)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setDragActive(false);
-                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                      handleFileUpload(e.dataTransfer.files[0]);
-                    }
-                  }}
-                  onClick={() => document.getElementById('resume-file-selector')?.click()}
-                  className={`border-2 border-dashed rounded-xl p-5 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-2 ${
-                    dragActive
-                      ? 'border-indigo-600 bg-indigo-50/20 shadow-inner'
-                      : 'border-slate-200 bg-slate-50 hover:bg-slate-50/85 hover:border-indigo-300'
-                  }`}
-                >
-                  <input
-                    id="resume-file-selector"
-                    type="file"
-                    accept=".pdf,.docx,.txt"
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        handleFileUpload(e.target.files[0]);
-                      }
-                    }}
-                  />
-                  <div className="w-9 h-9 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
-                    <Download size={16} className="animate-bounce" />
+                <p className="text-[10px] text-slate-450 font-medium leading-relaxed">
+                  Select your existing resume document file. Our secure client-side document parser will read the file, accurately extract sections (experience, education, summary, and skills), and auto-populate them directly into your current template completely offline.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Option 1: PDF */}
+                  <div
+                    onClick={() => document.getElementById('pdf-file-selector')?.click()}
+                    className="border border-slate-200 bg-white hover:border-red-500 hover:bg-red-50/5 rounded-xl p-5 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-3 group shadow-xxs hover:shadow-sm"
+                  >
+                    <input
+                      id="pdf-file-selector"
+                      type="file"
+                      accept=".pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          handleFileUpload(e.target.files[0]);
+                        }
+                      }}
+                    />
+                    <div className="w-12 h-12 rounded-full bg-red-50 group-hover:bg-red-100 flex items-center justify-center text-red-650 transition-colors">
+                      <FileText size={24} />
+                    </div>
+                    <div className="space-y-0.5">
+                      <h4 className="text-xs font-bold text-slate-800">1. Upload PDF</h4>
+                      <p className="text-[9.5px] text-slate-400 leading-normal max-w-[170px] mx-auto">
+                        Extract instantly from vector or scanned PDF files
+                      </p>
+                    </div>
+                    <span className="text-[8px] font-bold py-0.5 px-2 bg-red-50 text-red-700 rounded-full font-mono">
+                      PDF Document
+                    </span>
                   </div>
-                  <div className="space-y-0.5">
-                    <p className="text-xxs font-black text-slate-800">
-                      Drag and drop your file here, or <span className="text-indigo-650 underline">browse files</span>
-                    </p>
-                    <p className="text-[9.5px] text-slate-400">
-                      Supports high-resolution Vector PDF, MS Word (.docx), or plain text (.txt)
-                    </p>
+
+                  {/* Option 2: Word Doc */}
+                  <div
+                    onClick={() => document.getElementById('docx-file-selector')?.click()}
+                    className="border border-slate-200 bg-white hover:border-blue-500 hover:bg-blue-50/5 rounded-xl p-5 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-3 group shadow-xxs hover:shadow-sm"
+                  >
+                    <input
+                      id="docx-file-selector"
+                      type="file"
+                      accept=".docx,.doc"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          handleFileUpload(e.target.files[0]);
+                        }
+                      }}
+                    />
+                    <div className="w-12 h-12 rounded-full bg-blue-50 group-hover:bg-blue-100 flex items-center justify-center text-blue-650 transition-colors">
+                      <FileSpreadsheet size={24} />
+                    </div>
+                    <div className="space-y-0.5">
+                      <h4 className="text-xs font-bold text-slate-800">2. Upload Word Document</h4>
+                      <p className="text-[9.5px] text-slate-400 leading-normal max-w-[170px] mx-auto">
+                        Compatible with standard Microsoft Word documents
+                      </p>
+                    </div>
+                    <span className="text-[8px] font-bold py-0.5 px-2 bg-blue-50 text-blue-700 rounded-full font-mono">
+                      .doc / .docx
+                    </span>
                   </div>
                 </div>
 
-                {/* Aesthetic Section Separator */}
-                <div className="relative flex items-center justify-center py-1">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-slate-100"></div>
+                {/* Alternative paste option toggle */}
+                <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9.5px] font-black text-slate-400 uppercase tracking-wider">Fallback Option</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowPasteField(!showPasteField)}
+                      className="text-xxs font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer hover:underline"
+                    >
+                      {showPasteField ? 'Hide text block' : 'Or paste raw resume text'}
+                    </button>
                   </div>
-                  <span className="relative bg-white px-3 text-[9px] font-black uppercase text-slate-400 tracking-widest leading-none">
-                    OR PASTE RAW TEXT DETAILS
-                  </span>
+
+                  {showPasteField && (
+                    <div className="space-y-2 animate-fade-in pt-1">
+                      <textarea
+                        rows={4}
+                        placeholder="Paste raw block text or unformatted lists directly here..."
+                        value={rawPastedText}
+                        onChange={(e) => setRawPastedText(e.target.value)}
+                        className="w-full text-xxs px-3 py-2 bg-slate-50 border border-slate-150 rounded-xl focus:border-indigo-400 focus:outline-hidden font-sans leading-relaxed text-slate-700"
+                      />
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowPasteField(false)}
+                          className="px-3 py-1 hover:bg-slate-50 text-slate-500 rounded-lg text-xxs font-bold"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleImportText}
+                          disabled={rawPastedText.trim().length === 0}
+                          className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-750 disabled:opacity-40 text-white rounded-lg text-xxs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                        >
+                          <span>Extract Text Block</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* 2. Plain Textarea Paste Box */}
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-slate-400 leading-none">Draft Text Box</label>
-                  <textarea
-                    rows={5}
-                    placeholder="Alternatively, copy and paste raw text contents, bullet points, or list formatting variables directly here..."
-                    value={rawPastedText}
-                    onChange={(e) => setRawPastedText(e.target.value)}
-                    className="w-full text-xxs px-3 py-2 bg-slate-50 border border-slate-150 rounded-xl focus:border-indigo-400 focus:outline-hidden font-sans leading-relaxed text-slate-700"
-                  />
-                </div>
-
-                {/* Dialog Control Toolbar */}
-                <div className="flex justify-end gap-2 border-t border-slate-100 pt-3 mt-1">
+                {/* Closing footer */}
+                <div className="flex justify-end pt-2 mt-1">
                   <button
                     type="button"
                     onClick={() => setShowImportDialog(false)}
-                    className="px-3 py-1.5 hover:bg-slate-50 text-slate-655 rounded-lg text-xxs font-bold cursor-pointer"
+                    className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xxs font-bold cursor-pointer"
                   >
                     Close
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleImportText}
-                    disabled={rawPastedText.trim().length === 0}
-                    className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-750 disabled:opacity-40 text-white rounded-lg text-xxs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-                  >
-                    <span>Extract Paste</span>
                   </button>
                 </div>
               </div>

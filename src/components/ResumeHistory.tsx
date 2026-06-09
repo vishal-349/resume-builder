@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { Resume, LanguageCode } from '../types';
 import { store } from '../store';
-import { PlusCircle, Copy, Trash2, Edit3, Check, X, Calendar, FileText, Globe } from 'lucide-react';
+import { PlusCircle, Copy, Trash2, Edit3, Check, X, Calendar, FileText, Globe, AlertCircle } from 'lucide-react';
 
 interface ResumeHistoryProps {
   resumes: Resume[];
@@ -20,6 +20,8 @@ export default function ResumeHistory({ resumes, activeId, onSelect, onUpdate }:
   const [tempTitle, setTempTitle] = useState('');
   const [createMsg, setCreateMsg] = useState(false);
   const [selectLang, setSelectLang] = useState<LanguageCode>('en');
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [notification, setNotification] = useState<string | null>(null);
 
   const startRename = (r: Resume) => {
     setEditingId(r.id);
@@ -37,13 +39,17 @@ export default function ResumeHistory({ resumes, activeId, onSelect, onUpdate }:
   const deleteResume = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (resumes.length === 1) {
-      alert("At least one resume must remain in database! Modify or clone before deletion.");
+      setNotification("At least one resume document must remain in the sandbox.");
+      setTimeout(() => setNotification(null), 4000);
       return;
     }
-    if (confirm("Are you absolutely sure you want to permanently delete this resume? All offline details will be wiped.")) {
-      store.deleteResume(id);
-      onUpdate();
-    }
+    setDeleteConfirmId(id);
+  };
+
+  const executeDelete = (id: string) => {
+    store.deleteResume(id);
+    setDeleteConfirmId(null);
+    onUpdate();
   };
 
   const duplicateResume = (id: string, e: React.MouseEvent) => {
@@ -66,6 +72,12 @@ export default function ResumeHistory({ resumes, activeId, onSelect, onUpdate }:
 
   return (
     <div className="space-y-4" id="resume-history-panel">
+      {notification && (
+        <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xxs font-semibold rounded-xl flex items-center gap-2 animate-fade-in shadow-xs">
+          <AlertCircle size={14} className="text-amber-600 shrink-0" />
+          <span>{notification}</span>
+        </div>
+      )}
       {/* Upper Create Block */}
       <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-3">
         <div className="flex items-center justify-between">
@@ -170,31 +182,58 @@ export default function ResumeHistory({ resumes, activeId, onSelect, onUpdate }:
                 </div>
 
                 {/* Operations links */}
-                <div className="flex items-center gap-0.5">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      startRename(res);
-                    }}
-                    title="Rename"
-                    className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-all"
-                  >
-                    <Edit3 size={12} />
-                  </button>
-                  <button
-                    onClick={(e) => duplicateResume(res.id, e)}
-                    title="Clone Document"
-                    className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-all"
-                  >
-                    <Copy size={12} />
-                  </button>
-                  <button
-                    onClick={(e) => deleteResume(res.id, e)}
-                    title="Delete Draft"
-                    className="p-1 text-slate-400 hover:text-red-650 hover:bg-red-50 rounded-md transition-all"
-                  >
-                    <Trash2 size={12} />
-                  </button>
+                <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+                  {deleteConfirmId === res.id ? (
+                    <div className="flex items-center gap-1 bg-red-50 px-2 py-1 rounded-lg border border-red-200 animate-fade-in">
+                      <span className="text-[10px] font-bold text-red-650 tracking-wider">Are you sure?</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          executeDelete(res.id);
+                        }}
+                        className="px-1.5 py-0.5 bg-red-600 text-white rounded text-[10px] font-bold hover:bg-red-700 transition-colors cursor-pointer"
+                      >
+                        Delete
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteConfirmId(null);
+                        }}
+                        className="p-0.5 text-slate-400 hover:text-slate-600 cursor-pointer rounded hover:bg-slate-200"
+                        title="Cancel"
+                      >
+                        <X size={11} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-0.5">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startRename(res);
+                        }}
+                        title="Rename"
+                        className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-all cursor-pointer"
+                      >
+                        <Edit3 size={12} />
+                      </button>
+                      <button
+                        onClick={(e) => duplicateResume(res.id, e)}
+                        title="Clone Document"
+                        className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-all cursor-pointer"
+                      >
+                        <Copy size={12} />
+                      </button>
+                      <button
+                        onClick={(e) => deleteResume(res.id, e)}
+                        title="Delete Draft"
+                        className="p-1 text-slate-400 hover:text-red-550 hover:bg-red-50 rounded-md transition-all cursor-pointer"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
