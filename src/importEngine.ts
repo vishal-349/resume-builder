@@ -291,10 +291,10 @@ export function parseRawResumeText(text: string, lang: LanguageCode = 'en'): Res
           currentEdu = {
             id: `edu-${Math.random().toString(36).substr(2, 5)}`,
             institution: degreeStr ? line.replace(degreeStr, '').replace(/[,-]/g, '').trim() : line,
-            degree: degreeStr ? degreeStr.split(',')[0].trim() : 'Degree',
+            degree: degreeStr ? degreeStr.split(',')[0].trim() : '',
             fieldOfStudy: '',
-            startDate: dateMatch ? dateMatch[0].split(/[–-]/)[0].trim() : '2016',
-            endDate: dateMatch ? dateMatch[0].split(/[–-]/)[1]?.trim() || '' : '2020',
+            startDate: dateMatch ? dateMatch[0].split(/[–-]/)[0].trim() : '',
+            endDate: dateMatch ? dateMatch[0].split(/[–-]/)[1]?.trim() || '' : '',
             current: line.toLowerCase().includes('present'),
             description: ''
           };
@@ -333,9 +333,9 @@ export function parseRawResumeText(text: string, lang: LanguageCode = 'en'): Res
           currentExp = {
             id: `exp-${Math.random().toString(36).substr(2, 5)}`,
             company: parts[1] ? parts[1].trim() : parts[0].trim(),
-            position: parts[1] ? parts[0].trim() : 'Position',
-            startDate: dateMatch ? dateStr.split(/[–-]/)[0].trim() : '2020',
-            endDate: dateMatch ? dateStr.split(/[–-]/)[1]?.trim() || '' : '2023',
+            position: parts[1] ? parts[0].trim() : '',
+            startDate: dateMatch ? dateStr.split(/[–-]/)[0].trim() : '',
+            endDate: dateMatch ? dateStr.split(/[–-]/)[1]?.trim() || '' : '',
             current: line.toLowerCase().includes('present'),
             location: parts[2] ? parts[2].trim() : '',
             description: ''
@@ -364,10 +364,10 @@ export function parseRawResumeText(text: string, lang: LanguageCode = 'en'): Res
           currentProj = {
             id: `pj-${Math.random().toString(36).substr(2, 5)}`,
             name: line,
-            role: 'Developer',
-            startDate: '2021',
+            role: '',
+            startDate: '',
             endDate: '',
-            current: true,
+            current: false,
             description: ''
           };
         } else if (currentProj) {
@@ -405,7 +405,7 @@ export function parseRawResumeText(text: string, lang: LanguageCode = 'en'): Res
       const parsedLanguages = rawLines.map((line, idx) => ({
         id: `lg-${idx}-${Math.random().toString(36).substr(2, 5)}`,
         name: line.trim().replace(/^[\s·•\-*\d\.\)]+/, '').trim().split(/[-:|]/)[0].trim(),
-        proficiency: 'Fluent'
+        proficiency: ''
       }));
       secObj.items = [...secObj.items, ...parsedLanguages];
     }

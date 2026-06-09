@@ -6,8 +6,9 @@
 import React, { useState, useRef, useLayoutEffect, useEffect, forwardRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Resume, ResumeSection } from '../types';
-import { Mail, Phone, MapPin, Link as LinkIcon, Linkedin, Github, ZoomIn, ZoomOut, Maximize2, Bold, Italic, Underline, Type, Sparkles, Paintbrush, X } from 'lucide-react';
+import { Mail, Phone, MapPin, Link as LinkIcon, Linkedin, Github, ZoomIn, ZoomOut, Maximize2, Bold, Italic, Underline, Type, Sparkles, Paintbrush, X, List, ListOrdered, AlignLeft, AlignCenter, AlignRight, IndentIncrease, IndentDecrease } from 'lucide-react';
 import { store } from '../store';
+import { resolveFontStack, FONT_OPTIONS } from '../fonts';
 
 interface LivePreviewProps {
   resume: Resume;
@@ -17,7 +18,7 @@ interface LivePreviewProps {
 
 interface RenderBlock {
   key: string;
-  type: 'header' | 'section-heading' | 'summary' | 'skills-grid' | 'item' | 'qr-code';
+  type: 'header' | 'section-heading' | 'summary' | 'skills-grid' | 'item' | 'item-grid' | 'qr-code';
   sectionId?: string;
   itemId?: string;
   data?: any;
@@ -52,19 +53,27 @@ const EditableText = React.memo(({
   tagName?: string;
 }) => {
   const elementRef = useRef<HTMLElement>(null);
-  const [localValue, setLocalValue] = useState(value);
 
-  // Keep state sync'd when prop transitions
+  // The element is intentionally uncontrolled: we never call setState while the
+  // user types, so React never rewrites the DOM mid-edit and the caret stays put.
+  // We only push the prop value into the DOM for *external* changes (undo/redo,
+  // template switches) and only when the element is not currently focused.
   useEffect(() => {
-    setLocalValue(value);
+    const el = elementRef.current;
+    if (!el) return;
+    if (document.activeElement === el) return; // don't clobber the caret while editing
+    const incoming = value || '';
+    if (el.innerHTML !== incoming) {
+      el.innerHTML = incoming;
+    }
   }, [value]);
 
-  const handleBlur = () => {
+  const commit = () => {
     if (!elementRef.current) return;
     const currentHtml = elementRef.current.innerHTML;
-    // Strip trailing breaks
+    // Treat a lone <br> (left behind after deleting everything) as empty.
     const cleanValue = currentHtml === '<br>' ? '' : currentHtml;
-    
+
     if (cleanValue !== value) {
       if (fieldName === 'sectionHeader') {
         store.updateSectionHeader(sectionId, cleanValue);
@@ -78,11 +87,6 @@ const EditableText = React.memo(({
     }
   };
 
-  const handleInput = () => {
-    if (!elementRef.current) return;
-    setLocalValue(elementRef.current.innerHTML);
-  };
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !['description', 'summary'].includes(fieldName)) {
       e.preventDefault();
@@ -94,16 +98,20 @@ const EditableText = React.memo(({
     ref: elementRef as any,
     contentEditable: true,
     suppressContentEditableWarning: true,
-    onBlur: handleBlur,
-    onInput: handleInput,
+    onBlur: commit,
     onKeyDown: handleKeyDown,
-    className: `${className} select-text outline-hidden focus:ring-1 focus:ring-indigo-400 focus:bg-indigo-50/10 hover:bg-slate-100/10 transition-all rounded-sm px-0.5 inline-block min-w-[20px]`,
+    className: `${className} editable-field select-text outline-hidden focus:ring-1 focus:ring-indigo-400 focus:bg-indigo-50/10 hover:bg-slate-100/10 transition-all rounded-sm px-0.5 inline-block min-w-[20px]`,
     style,
     'data-editable-field': 'true',
     'data-section-id': sectionId,
     'data-item-id': itemId,
     'data-field-name': fieldName,
-    dangerouslySetInnerHTML: { __html: localValue || (placeholder ? `<span class="opacity-40 italic cursor-text">${placeholder}</span>` : '') }
+    // Placeholder is rendered via CSS (::before) from this attribute, so it is
+    // never part of the element's real content and never appears in exports/print.
+    'data-placeholder': placeholder || '',
+    // Initial DOM content only. Memo below prevents prop-driven re-renders during
+    // typing, so this never clobbers the caret.
+    dangerouslySetInnerHTML: { __html: value || '' }
   };
 
   return React.createElement(tagName, wrapperProps);
@@ -293,13 +301,20 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
   const styles = resume.styles;
   const primaryColor = styles.primaryColor;
 
+  // Returns 'hidden' when every value is empty so the element is fully removed
+  // from both the on-screen preview and the printed/exported resume — no empty
+  // rows, icons, separators, or placeholder hints for blank fields.
+  const hideIfEmpty = (...vals: any[]) => (vals.some((v) => v && String(v).replace(/<[^>]*>/g, '').trim()) ? '' : 'hidden');
+
   const personalSec = resume.sections.find(s => s.type === 'personal');
   const contact = personalSec?.items[0] || {};
 
-  // Derive font family
-  let fontClass = 'font-sans';
-  if (styles.fontFamily === 'serif') fontClass = 'font-serif';
-  if (styles.fontFamily === 'mono') fontClass = 'font-mono';
+  // Derive font family — resolves both legacy tokens (sans/serif/mono) and any
+  // real font name chosen from the Typography dropdown into a full CSS stack.
+  const fontStack = resolveFontStack(styles.fontFamily);
+
+  // Line spacing applied to prose (summary + item descriptions).
+  const lineHeightValue = styles.lineSpacing === 'tight' ? 1.3 : styles.lineSpacing === 'relaxed' ? 1.9 : 1.55;
 
   // Density padding styles
   let sectionSpacingClass = 'space-y-4';
@@ -351,7 +366,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
   // Description bullet formatting
   const renderDescription = (sectionId: string, itemId: string, textVal: string) => {
     return (
-      <div className="mt-1 text-slate-600 border-l border-slate-100/60 pl-2 whitespace-pre-line leading-relaxed text-left">
+      <div className="mt-1 text-slate-600 border-l border-slate-100/60 pl-2 whitespace-pre-line text-left" style={{ lineHeight: lineHeightValue }}>
         <EditableText
           sectionId={sectionId}
           itemId={itemId}
@@ -360,6 +375,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
           placeholder="E.g. Accomplished team targets, raised compute performance, authored test coverage..."
           tagName="div"
           className={currentBodySize}
+          style={{ lineHeight: lineHeightValue }}
         />
       </div>
     );
@@ -371,7 +387,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
       case 'experience':
         if (resume.templateId === 'developer-terminal') {
           return (
-            <div className="border-l-2 border-green-700 pl-3 py-0.5 text-left select-text">
+            <div className="border-l-2 border-green-700 pl-3 py-0.5 select-text">
               <p className="font-mono text-xs font-bold text-green-400">
                 <EditableText sectionId={sectionId} itemId={item.id} fieldName="position" value={item.position} placeholder="Position" />
                 <span className="text-slate-400"> @ </span>
@@ -385,12 +401,12 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
           );
         }
         return (
-          <div className="py-0.5 text-left select-text">
+          <div className="py-0.5 select-text">
             <div className="flex justify-between items-baseline flex-wrap gap-x-2">
               <h5 className="font-bold text-slate-800 text-[11px]">
                 <EditableText sectionId={sectionId} itemId={item.id} fieldName="position" value={item.position} placeholder="Position Title" /> <span className="text-slate-400 font-normal">at</span> <EditableText sectionId={sectionId} itemId={item.id} fieldName="company" value={item.company} placeholder="Company Name" />
               </h5>
-              <div className="text-[9px] text-slate-400 font-semibold uppercase flex items-center gap-1 shrink-0">
+              <div className={`text-[9px] text-slate-400 font-semibold uppercase flex items-center gap-1 shrink-0 ${hideIfEmpty(item.startDate, item.endDate, item.current)}`}>
                 <EditableText sectionId={sectionId} itemId={item.id} fieldName="startDate" value={item.startDate} placeholder="Start" />
                 <span>–</span>
                 {item.current ? <span>Present</span> : <EditableText sectionId={sectionId} itemId={item.id} fieldName="endDate" value={item.endDate} placeholder="End" />}
@@ -407,12 +423,12 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
 
       case 'education':
         return (
-          <div className="py-0.5 text-left select-text">
+          <div className="py-0.5 select-text">
             <div className="flex justify-between items-baseline flex-wrap gap-x-2">
               <h5 className="font-bold text-slate-800 text-[11px]">
                 <EditableText sectionId={sectionId} itemId={item.id} fieldName="degree" value={item.degree} placeholder="Degree" /> <span className="text-slate-400 font-normal">in</span> <EditableText sectionId={sectionId} itemId={item.id} fieldName="fieldOfStudy" value={item.fieldOfStudy} placeholder="Field of Study" />
               </h5>
-              <div className="text-[9px] text-slate-400 font-semibold flex items-center gap-1 uppercase shrink-0">
+              <div className={`text-[9px] text-slate-400 font-semibold flex items-center gap-1 uppercase shrink-0 ${hideIfEmpty(item.startDate, item.endDate, item.current)}`}>
                 <EditableText sectionId={sectionId} itemId={item.id} fieldName="startDate" value={item.startDate} placeholder="Start Date" />
                 <span>–</span>
                 {item.current ? <span>Present</span> : <EditableText sectionId={sectionId} itemId={item.id} fieldName="endDate" value={item.endDate} placeholder="End Date" />}
@@ -428,13 +444,13 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
 
       case 'projects':
         return (
-          <div className="py-0.5 text-left select-text">
+          <div className="py-0.5 select-text">
             <div className="flex justify-between items-baseline flex-wrap gap-x-2">
               <h5 className="font-bold text-slate-800 text-[11px] flex gap-1.5 items-center">
                 <EditableText sectionId={sectionId} itemId={item.id} fieldName="name" value={item.name} placeholder="Project Title" />
                 {item.role && <><span className="text-slate-300"> - </span><EditableText sectionId={sectionId} itemId={item.id} fieldName="role" value={item.role} placeholder="Role" className="text-slate-500 font-medium" /></>}
               </h5>
-              <div className="text-[9px] text-slate-400 font-semibold uppercase flex items-center gap-1 shrink-0">
+              <div className={`text-[9px] text-slate-400 font-semibold uppercase flex items-center gap-1 shrink-0 ${hideIfEmpty(item.startDate, item.endDate, item.current)}`}>
                 <EditableText sectionId={sectionId} itemId={item.id} fieldName="startDate" value={item.startDate} placeholder="Start Date" />
                 <span>–</span>
                 {item.current ? <span>Present</span> : <EditableText sectionId={sectionId} itemId={item.id} fieldName="endDate" value={item.endDate} placeholder="End Date" />}
@@ -451,7 +467,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
 
       case 'certifications':
         return (
-          <div className="py-0.5 text-left select-text">
+          <div className="py-0.5 select-text">
             <div className="flex justify-between items-baseline gap-2">
               <p className="font-bold text-slate-800 text-[10px] leading-tight">
                 <EditableText sectionId={sectionId} itemId={item.id} fieldName="name" value={item.name} placeholder="Certificate Title" />
@@ -468,7 +484,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
 
       case 'awards':
         return (
-          <div className="py-0.5 text-left select-text">
+          <div className="py-0.5 select-text">
             <div className="flex justify-between items-baseline gap-2">
               <p className="font-bold text-slate-800 text-[10px]">
                 <EditableText sectionId={sectionId} itemId={item.id} fieldName="title" value={item.title} placeholder="Award Title" />
@@ -494,12 +510,12 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
 
       case 'volunteer':
         return (
-          <div className="py-0.5 text-left select-text">
+          <div className="py-0.5 select-text">
             <div className="flex justify-between items-baseline gap-2 flex-wrap">
               <h5 className="font-bold text-slate-800 text-[11px]">
                 <EditableText sectionId={sectionId} itemId={item.id} fieldName="role" value={item.role} placeholder="Volunteer Role" /> <span className="text-slate-400 font-normal">at</span> <EditableText sectionId={sectionId} itemId={item.id} fieldName="organization" value={item.organization} placeholder="Organization Name" />
               </h5>
-              <div className="text-[9px] text-slate-400 font-semibold uppercase flex items-center gap-1 shrink-0">
+              <div className={`text-[9px] text-slate-400 font-semibold uppercase flex items-center gap-1 shrink-0 ${hideIfEmpty(item.startDate, item.endDate, item.current)}`}>
                 <EditableText sectionId={sectionId} itemId={item.id} fieldName="startDate" value={item.startDate} placeholder="Start" />
                 <span>–</span>
                 {item.current ? <span>Present</span> : <EditableText sectionId={sectionId} itemId={item.id} fieldName="endDate" value={item.endDate} placeholder="End" />}
@@ -511,7 +527,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
 
       case 'publications':
         return (
-          <div className="py-0.5 text-left select-text">
+          <div className="py-0.5 select-text">
             <div className="flex justify-between items-baseline gap-2">
               <h5 className="font-bold text-slate-800 text-[10.5px]">
                 <EditableText sectionId={sectionId} itemId={item.id} fieldName="title" value={item.title} placeholder="Publication Title" />
@@ -534,7 +550,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
 
       case 'references':
         return (
-          <div className="py-0.5 text-left select-text text-[9.5px] leading-relaxed">
+          <div className="py-0.5 select-text text-[9.5px] leading-relaxed">
             <p className="font-bold text-slate-800 text-[10px]"><EditableText sectionId={sectionId} itemId={item.id} fieldName="name" value={item.name} placeholder="Reference Name" /></p>
             <p className="text-slate-500 font-medium">
               <EditableText sectionId={sectionId} itemId={item.id} fieldName="relationship" value={item.relationship} placeholder="Relationship" /> <span className="text-slate-400 font-normal">at</span> <EditableText sectionId={sectionId} itemId={item.id} fieldName="company" value={item.company} placeholder="Company Name" />
@@ -545,7 +561,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
 
       case 'custom':
         return (
-          <div className="py-0.5 text-left select-text">
+          <div className="py-0.5 select-text">
             <div className="flex justify-between items-baseline gap-2 flex-wrap">
               <h5 className="font-bold text-slate-800 text-[10.5px]">
                 <EditableText sectionId={sectionId} itemId={item.id} fieldName="title" value={item.title} placeholder="Custom Section Entry" />
@@ -562,10 +578,15 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
     }
   };
 
+  // Per-section content alignment (falls back to left)
+  const sectionAlign = (sec: ResumeSection): 'left' | 'center' | 'right' => sec.layout?.align || 'left';
+
   const renderSectionHeader = (sec: ResumeSection) => {
+    // A per-section alignment override wins; otherwise use the global heading alignment.
+    const effectiveAlign = sec.layout?.align || styles.sectionHeadingAlignment;
     let headingAlign = 'text-left';
-    if (styles.sectionHeadingAlignment === 'center') headingAlign = 'text-center';
-    else if (styles.sectionHeadingAlignment === 'right') headingAlign = 'text-right';
+    if (effectiveAlign === 'center') headingAlign = 'text-center';
+    else if (effectiveAlign === 'right') headingAlign = 'text-right';
 
     if (resume.templateId === 'developer-terminal') {
       return (
@@ -587,8 +608,79 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
           placeholder="Section Title"
           tagName="h4"
           className={`${currentTitleSize} font-bold tracking-tight uppercase leading-tight pb-0.5 ${borderBottomClass}`}
-          style={{ borderColor: `${primaryColor}30`, display: 'inline-block', width: '100%', textAlign: styles.sectionHeadingAlignment }}
+          style={{ borderColor: `${primaryColor}30`, display: 'inline-block', width: '100%', textAlign: effectiveAlign }}
         />
+      </div>
+    );
+  };
+
+  // Generic, template-independent header used when the user explicitly chooses
+  // where the contact details should sit (Visual Custom → Contact / Header layout).
+  const renderGenericHeader = (layout: 'right' | 'horizontal' | 'stacked', contact: any) => {
+    const contactFields = [
+      { Icon: Mail, field: 'email', val: contact.email, ph: 'Email' },
+      { Icon: Phone, field: 'phone', val: contact.phone, ph: 'Phone' },
+      { Icon: MapPin, field: 'location', val: contact.location, ph: 'Location' },
+      { Icon: LinkIcon, field: 'website', val: contact.website, ph: 'Website' },
+      { Icon: Linkedin, field: 'linkedin', val: contact.linkedin, ph: 'LinkedIn' },
+      { Icon: Github, field: 'github', val: contact.github, ph: 'GitHub' },
+    ];
+
+    const nameBlock = (alignClass: string) => (
+      <div className={alignClass}>
+        <h1 className="text-xl font-black tracking-tight" style={{ color: primaryColor }}>
+          <EditableText sectionId="personal" fieldName="fullName" value={contact.fullName} placeholder="Your Full Name" />
+        </h1>
+        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
+          <EditableText sectionId="personal" fieldName="jobTitle" value={contact.jobTitle} placeholder="Desired Position Title" />
+        </p>
+      </div>
+    );
+
+    const horizontalContacts = (justify: string) => (
+      <div className={`flex flex-wrap ${justify} gap-x-3 gap-y-1 text-[9.5px] text-slate-600`}>
+        {contactFields.map(({ Icon, field, val, ph }) => (
+          <span key={field} className={`flex items-center gap-1 ${hideIfEmpty(val)}`}>
+            <Icon size={10} /><EditableText sectionId="personal" fieldName={field} value={val} placeholder={ph} />
+          </span>
+        ))}
+      </div>
+    );
+
+    const verticalContacts = (
+      <div className="grid grid-cols-1 gap-y-0.5 text-[9.5px] text-slate-600 max-w-sm text-left">
+        {contactFields.map(({ Icon, field, val, ph }) => (
+          <div key={field} className={`flex items-center gap-1.5 ${hideIfEmpty(val)}`}>
+            <Icon size={10} /><span><EditableText sectionId="personal" fieldName={field} value={val} placeholder={ph} /></span>
+          </div>
+        ))}
+      </div>
+    );
+
+    if (layout === 'right') {
+      return (
+        <div className="mb-4 flex justify-between items-start flex-wrap gap-3 border-b border-slate-100 pb-4 select-text">
+          {nameBlock('text-left')}
+          {verticalContacts}
+        </div>
+      );
+    }
+
+    if (layout === 'horizontal') {
+      // Contact details on a horizontal row directly below the name.
+      return (
+        <div className="mb-4 border-b border-slate-100 pb-4 select-text text-center space-y-2">
+          {nameBlock('text-center')}
+          {horizontalContacts('justify-center')}
+        </div>
+      );
+    }
+
+    // 'stacked' — everything left-aligned, contact row beneath the name.
+    return (
+      <div className="mb-4 border-b border-slate-100 pb-4 select-text text-left space-y-2">
+        {nameBlock('text-left')}
+        {horizontalContacts('justify-start')}
       </div>
     );
   };
@@ -599,19 +691,24 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
 
     if (!personalSec || !personalSec.visible) return null;
 
+    // A user-chosen contact/header layout overrides the template's own header.
+    if (styles.headerLayout && styles.headerLayout !== 'template') {
+      return renderGenericHeader(styles.headerLayout, contact);
+    }
+
     if (resume.templateId === 'developer-terminal') {
       return (
         <div className="font-mono mb-4 bg-slate-900 border border-slate-800 p-3 rounded text-green-400 select-text text-left">
           <h1 className="text-base font-bold">&gt; JOBS_DB: <EditableText sectionId="personal" fieldName="fullName" value={contact.fullName} placeholder="FULL_NAME" /></h1>
           <p className="text-[10px] text-slate-400 uppercase mt-1">TITLE // <EditableText sectionId="personal" fieldName="jobTitle" value={contact.jobTitle} placeholder="ENGINEER_ROLE" /></p>
           <div className="mt-2 text-[9.5px] font-mono space-y-0.5 text-slate-300">
-            <p># MAIL: <EditableText sectionId="personal" fieldName="email" value={contact.email} placeholder="email@address" /></p>
-            <p># PHONE: <EditableText sectionId="personal" fieldName="phone" value={contact.phone} placeholder="phone_number" /></p>
-            <p># COORDS: <EditableText sectionId="personal" fieldName="location" value={contact.location} placeholder="city_state_country" /></p>
-            <p># WEBSITE: <EditableText sectionId="personal" fieldName="website" value={contact.website} placeholder="mywebsite.dev" /></p>
+            <p className={hideIfEmpty(contact.email)}># MAIL: <EditableText sectionId="personal" fieldName="email" value={contact.email} placeholder="email@address" /></p>
+            <p className={hideIfEmpty(contact.phone)}># PHONE: <EditableText sectionId="personal" fieldName="phone" value={contact.phone} placeholder="phone_number" /></p>
+            <p className={hideIfEmpty(contact.location)}># COORDS: <EditableText sectionId="personal" fieldName="location" value={contact.location} placeholder="city_state_country" /></p>
+            <p className={hideIfEmpty(contact.website)}># WEBSITE: <EditableText sectionId="personal" fieldName="website" value={contact.website} placeholder="mywebsite.dev" /></p>
             <div className="flex gap-2 items-center flex-wrap mt-1 opacity-80">
-              <p># LINKEDIN: <EditableText sectionId="personal" fieldName="linkedin" value={contact.linkedin} placeholder="linkedin.com/in/user" /></p>
-              <p># GITHUB: <EditableText sectionId="personal" fieldName="github" value={contact.github} placeholder="github.com/user" /></p>
+              <p className={hideIfEmpty(contact.linkedin)}># LINKEDIN: <EditableText sectionId="personal" fieldName="linkedin" value={contact.linkedin} placeholder="linkedin.com/in/user" /></p>
+              <p className={hideIfEmpty(contact.github)}># GITHUB: <EditableText sectionId="personal" fieldName="github" value={contact.github} placeholder="github.com/user" /></p>
             </div>
           </div>
         </div>
@@ -629,12 +726,12 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
               <EditableText sectionId="personal" fieldName="jobTitle" value={contact.jobTitle} placeholder="Your Profession" />
             </p>
             <div className="mt-3 pt-3 border-t border-indigo-900/60 grid grid-cols-2 gap-y-1 text-[9.5px] text-indigo-100">
-              <div className="flex items-center gap-1.5"><Mail size={10} /><span><EditableText sectionId="personal" fieldName="email" value={contact.email} placeholder="Email" /></span></div>
-              <div className="flex items-center gap-1.5"><Phone size={10} /><span><EditableText sectionId="personal" fieldName="phone" value={contact.phone} placeholder="Phone" /></span></div>
-              <div className="flex items-center gap-1.5"><MapPin size={10} /><span><EditableText sectionId="personal" fieldName="location" value={contact.location} placeholder="Location" /></span></div>
-              <div className="flex items-center gap-1.5"><LinkIcon size={10} /><span><EditableText sectionId="personal" fieldName="website" value={contact.website} placeholder="Website" /></span></div>
-              <div className="flex items-center gap-1.5"><Linkedin size={10} /><span><EditableText sectionId="personal" fieldName="linkedin" value={contact.linkedin} placeholder="LinkedIn" /></span></div>
-              <div className="flex items-center gap-1.5"><Github size={10} /><span><EditableText sectionId="personal" fieldName="github" value={contact.github} placeholder="GitHub" /></span></div>
+              <div className={`flex items-center gap-1.5 ${hideIfEmpty(contact.email)}`}><Mail size={10} /><span><EditableText sectionId="personal" fieldName="email" value={contact.email} placeholder="Email" /></span></div>
+              <div className={`flex items-center gap-1.5 ${hideIfEmpty(contact.phone)}`}><Phone size={10} /><span><EditableText sectionId="personal" fieldName="phone" value={contact.phone} placeholder="Phone" /></span></div>
+              <div className={`flex items-center gap-1.5 ${hideIfEmpty(contact.location)}`}><MapPin size={10} /><span><EditableText sectionId="personal" fieldName="location" value={contact.location} placeholder="Location" /></span></div>
+              <div className={`flex items-center gap-1.5 ${hideIfEmpty(contact.website)}`}><LinkIcon size={10} /><span><EditableText sectionId="personal" fieldName="website" value={contact.website} placeholder="Website" /></span></div>
+              <div className={`flex items-center gap-1.5 ${hideIfEmpty(contact.linkedin)}`}><Linkedin size={10} /><span><EditableText sectionId="personal" fieldName="linkedin" value={contact.linkedin} placeholder="LinkedIn" /></span></div>
+              <div className={`flex items-center gap-1.5 ${hideIfEmpty(contact.github)}`}><Github size={10} /><span><EditableText sectionId="personal" fieldName="github" value={contact.github} placeholder="GitHub" /></span></div>
             </div>
           </div>
           <div className="absolute -bottom-16 -right-16 w-36 h-36 bg-indigo-600/20 rounded-full blur-2xl animate-pulse" />
@@ -652,11 +749,11 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
             <EditableText sectionId="personal" fieldName="jobTitle" value={contact.jobTitle} placeholder="Desired Role / Custom Title" />
           </p>
           <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-[9.5px] text-slate-600 mt-2 font-mono">
-            <span><EditableText sectionId="personal" fieldName="email" value={contact.email} placeholder="Email" /></span>
-            <span><EditableText sectionId="personal" fieldName="phone" value={contact.phone} placeholder="Phone" /></span>
-            <span><EditableText sectionId="personal" fieldName="location" value={contact.location} placeholder="Location" /></span>
-            <span><EditableText sectionId="personal" fieldName="website" value={contact.website} placeholder="Website" /></span>
-            <span><EditableText sectionId="personal" fieldName="linkedin" value={contact.linkedin} placeholder="LinkedIn" /></span>
+            <span className={hideIfEmpty(contact.email)}><EditableText sectionId="personal" fieldName="email" value={contact.email} placeholder="Email" /></span>
+            <span className={hideIfEmpty(contact.phone)}><EditableText sectionId="personal" fieldName="phone" value={contact.phone} placeholder="Phone" /></span>
+            <span className={hideIfEmpty(contact.location)}><EditableText sectionId="personal" fieldName="location" value={contact.location} placeholder="Location" /></span>
+            <span className={hideIfEmpty(contact.website)}><EditableText sectionId="personal" fieldName="website" value={contact.website} placeholder="Website" /></span>
+            <span className={hideIfEmpty(contact.linkedin)}><EditableText sectionId="personal" fieldName="linkedin" value={contact.linkedin} placeholder="LinkedIn" /></span>
           </div>
           <div className="h-[2px] bg-slate-800 w-full mt-3" />
         </div>
@@ -675,12 +772,12 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
         </div>
 
         <div className="grid grid-cols-1 gap-y-0.5 text-[9.5px] text-slate-600 max-w-sm text-left">
-          <div className="flex items-center gap-1.5"><Mail size={10} /><span><EditableText sectionId="personal" fieldName="email" value={contact.email} placeholder="Email" /></span></div>
-          <div className="flex items-center gap-1.5"><Phone size={10} /><span><EditableText sectionId="personal" fieldName="phone" value={contact.phone} placeholder="Phone" /></span></div>
-          <div className="flex items-center gap-1.5"><MapPin size={10} /><span><EditableText sectionId="personal" fieldName="location" value={contact.location} placeholder="Location" /></span></div>
-          <div className="flex items-center gap-1.5"><LinkIcon size={10} /><span><EditableText sectionId="personal" fieldName="website" value={contact.website} placeholder="Website" /></span></div>
-          <div className="flex items-center gap-1.5"><Linkedin size={10} /><span><EditableText sectionId="personal" fieldName="linkedin" value={contact.linkedin} placeholder="LinkedIn" /></span></div>
-          <div className="flex items-center gap-1.5"><Github size={10} /><span><EditableText sectionId="personal" fieldName="github" value={contact.github} placeholder="GitHub" /></span></div>
+          <div className={`flex items-center gap-1.5 ${hideIfEmpty(contact.email)}`}><Mail size={10} /><span><EditableText sectionId="personal" fieldName="email" value={contact.email} placeholder="Email" /></span></div>
+          <div className={`flex items-center gap-1.5 ${hideIfEmpty(contact.phone)}`}><Phone size={10} /><span><EditableText sectionId="personal" fieldName="phone" value={contact.phone} placeholder="Phone" /></span></div>
+          <div className={`flex items-center gap-1.5 ${hideIfEmpty(contact.location)}`}><MapPin size={10} /><span><EditableText sectionId="personal" fieldName="location" value={contact.location} placeholder="Location" /></span></div>
+          <div className={`flex items-center gap-1.5 ${hideIfEmpty(contact.website)}`}><LinkIcon size={10} /><span><EditableText sectionId="personal" fieldName="website" value={contact.website} placeholder="Website" /></span></div>
+          <div className={`flex items-center gap-1.5 ${hideIfEmpty(contact.linkedin)}`}><Linkedin size={10} /><span><EditableText sectionId="personal" fieldName="linkedin" value={contact.linkedin} placeholder="LinkedIn" /></span></div>
+          <div className={`flex items-center gap-1.5 ${hideIfEmpty(contact.github)}`}><Github size={10} /><span><EditableText sectionId="personal" fieldName="github" value={contact.github} placeholder="GitHub" /></span></div>
         </div>
       </div>
     );
@@ -698,12 +795,21 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
     const activeSections = resume.sections.filter(s => s.visible && s.type !== 'personal' && s.items.length > 0);
 
     activeSections.forEach((sec) => {
-      list.push({ key: `sh-${sec.id}`, type: 'section-heading', sectionId: sec.id });
+      // Section title can be hidden per-section
+      if (sec.layout?.showTitle !== false) {
+        list.push({ key: `sh-${sec.id}`, type: 'section-heading', sectionId: sec.id });
+      }
+
+      const columns = sec.layout?.columns || 1;
 
       if (sec.type === 'summary') {
         list.push({ key: `sm-${sec.id}`, type: 'summary', sectionId: sec.id, data: sec.items[0] });
       } else if (sec.type === 'skills') {
         list.push({ key: `sk-${sec.id}`, type: 'skills-grid', sectionId: sec.id, data: sec.items });
+      } else if (columns > 1) {
+        // Render the whole section as one multi-column block (kept as a single
+        // block so the pagination engine measures and places it as a unit).
+        list.push({ key: `grid-${sec.id}`, type: 'item-grid', sectionId: sec.id, data: sec.items });
       } else {
         sec.items.forEach((item: any, idx) => {
           list.push({
@@ -734,20 +840,60 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
         return sec ? <div key={block.key}>{renderSectionHeader(sec)}</div> : null;
       case 'summary':
         return (
-          <div key={block.key} className="text-left py-0.5 select-text">
+          <div key={block.key} className="py-0.5 select-text" style={{ textAlign: sectionAlign(sec!) }}>
             <EditableText
               sectionId={block.sectionId!}
               fieldName="summary"
               value={block.data || ''}
               placeholder="Write a brief, high-impact summary statement here..."
               tagName="p"
-              className={`text-slate-600 font-sans mt-1 leading-relaxed ${currentBodySize}`}
+              className={`text-slate-600 font-sans mt-1 ${currentBodySize}`}
+              style={{ lineHeight: lineHeightValue }}
             />
           </div>
         );
-      case 'skills-grid':
+      case 'skills-grid': {
+        const skillStyle = sec?.layout?.skillStyle || 'chips';
+        const cols = sec?.layout?.columns || 1;
+        const align = sectionAlign(sec!);
+        const justify = align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start';
+
+        // Comma-separated single line
+        if (skillStyle === 'inline') {
+          return (
+            <div key={block.key} className="mt-1 pb-1 select-text text-[10px] text-slate-700 leading-relaxed" style={{ textAlign: align }}>
+              {block.data.map((sk: any, idx: number) => (
+                <span key={sk.id || idx}>
+                  <EditableText sectionId={block.sectionId!} itemId={sk.id} fieldName="name" value={sk.name} placeholder="Skill" />
+                  {sk.level && <span className="text-slate-400"> (<EditableText sectionId={block.sectionId!} itemId={sk.id} fieldName="level" value={sk.level} placeholder="Level" />)</span>}
+                  {idx < block.data.length - 1 && <span className="text-slate-400 select-none"> &middot; </span>}
+                </span>
+              ))}
+            </div>
+          );
+        }
+
+        // Bulleted vertical list (optionally multi-column)
+        if (skillStyle === 'list') {
+          return (
+            <ul
+              key={block.key}
+              className="mt-1 pb-1 select-text text-[10px] text-slate-700 leading-relaxed list-disc pl-4"
+              style={{ columns: cols > 1 ? cols : undefined, textAlign: align }}
+            >
+              {block.data.map((sk: any, idx: number) => (
+                <li key={sk.id || idx} className="ml-1">
+                  <EditableText sectionId={block.sectionId!} itemId={sk.id} fieldName="name" value={sk.name} placeholder="Skill" />
+                  {sk.level && <span className="text-slate-400 font-normal"> (<EditableText sectionId={block.sectionId!} itemId={sk.id} fieldName="level" value={sk.level} placeholder="Level" />)</span>}
+                </li>
+              ))}
+            </ul>
+          );
+        }
+
+        // Default: chips
         return (
-          <div key={block.key} className="flex flex-wrap gap-1 mt-1 pb-1 text-left select-text">
+          <div key={block.key} className="flex flex-wrap gap-1 mt-1 pb-1 select-text" style={{ justifyContent: justify }}>
             {block.data.map((sk: any, idx: number) => (
               <span
                 key={sk.id || idx}
@@ -759,8 +905,23 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
             ))}
           </div>
         );
+      }
       case 'item':
-        return sec ? <div key={block.key}>{renderItemContent(block.sectionId!, block.data, sec.type)}</div> : null;
+        return sec ? <div key={block.key} style={{ textAlign: sectionAlign(sec) }}>{renderItemContent(block.sectionId!, block.data, sec.type)}</div> : null;
+      case 'item-grid':
+        return sec ? (
+          <div
+            key={block.key}
+            style={{ columns: (sec.layout?.columns || 1), textAlign: sectionAlign(sec) }}
+            className="gap-x-5"
+          >
+            {block.data.map((item: any, idx: number) => (
+              <div key={item.id || idx} className="break-inside-avoid mb-1.5">
+                {renderItemContent(block.sectionId!, item, sec.type)}
+              </div>
+            ))}
+          </div>
+        ) : null;
       case 'qr-code':
         return (
           <div key={block.key} className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-left text-[9px] text-slate-400 select-none">
@@ -768,7 +929,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
               <p className="font-bold text-slate-500">Scan Digital Interactive Profile</p>
               <p>Verifiable Offline Portfolio Page</p>
             </div>
-            <SVGQRCode value={`https://aistudio.build/portfolio/${resume.id}`} />
+            <SVGQRCode value={`${typeof window !== 'undefined' ? window.location.origin : ''}/portfolio/${resume.id}`} />
           </div>
         );
       default:
@@ -1034,10 +1195,11 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
           width: '794px',
           backgroundColor: styles.backgroundColor,
           color: styles.textColor,
+          fontFamily: fontStack,
           pointerEvents: 'none',
           visibility: 'hidden',
         }}
-        className={`${fontClass} ${paddingClass} leading-snug flex flex-col`}
+        className={`${paddingClass} leading-snug flex flex-col`}
       >
         {isTwoColumn ? (
           <div className="grid grid-cols-3 gap-5 w-full">
@@ -1106,8 +1268,9 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
                 height: '1123px',
                 backgroundColor: styles.backgroundColor,
                 color: styles.textColor,
+                fontFamily: fontStack,
               }}
-              className={`a4-page shadow-xl border border-slate-200/60 text-left shrink-0 select-text overflow-hidden relative flex flex-col justify-between ${fontClass} ${paddingClass}`}
+              className={`a4-page shadow-xl border border-slate-200/60 text-left shrink-0 select-text overflow-hidden relative flex flex-col justify-between ${paddingClass}`}
             >
               <div className="flex-1 w-full flex flex-col">
                 {isTwoColumn ? (
@@ -1152,8 +1315,9 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
                 height: '1123px',
                 backgroundColor: styles.backgroundColor,
                 color: styles.textColor,
+                fontFamily: fontStack,
               }}
-              className={`a4-page select-text overflow-hidden relative flex flex-col justify-between ${fontClass} ${paddingClass}`}
+              className={`a4-page select-text overflow-hidden relative flex flex-col justify-between ${paddingClass}`}
             >
               <div className="flex-1 w-full flex flex-col">
                 {isTwoColumn ? (
@@ -1203,29 +1367,23 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
           }}
           className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 shadow-2xl animate-in fade-in-50 zoom-in-95 duration-100 shrink-0 select-none no-print border-indigo-950/40"
         >
-          {/* Font Family Command Selector */}
+          {/* Font Family Command Selector — full dropdown applied to the selection */}
           <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={() => runFormat('fontName', 'sans-serif')}
-              className="text-[9.5px] font-sans font-bold hover:bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 hover:text-white transition-all cursor-pointer"
-              title="Set Sans-serif Font"
+            <select
+              onMouseDown={(e) => e.stopPropagation()}
+              onChange={(e) => {
+                if (e.target.value) runFormat('fontName', e.target.value);
+                e.target.selectedIndex = 0;
+              }}
+              defaultValue=""
+              title="Apply font family to the selected text"
+              className="text-[9.5px] font-sans font-bold bg-slate-800 text-slate-200 rounded px-1.5 py-0.5 outline-hidden cursor-pointer hover:bg-slate-700 transition-all max-w-[92px]"
             >
-              Sans
-            </button>
-            <button
-              onClick={() => runFormat('fontName', 'serif')}
-              className="text-[9.5px] font-serif font-bold hover:bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 hover:text-white transition-all cursor-pointer"
-              title="Set Serif Font"
-            >
-              Serif
-            </button>
-            <button
-              onClick={() => runFormat('fontName', 'monospace')}
-              className="text-[9.5px] font-mono font-bold hover:bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 hover:text-white transition-all cursor-pointer"
-              title="Set Monospace Font"
-            >
-              Mono
-            </button>
+              <option value="" disabled>Font</option>
+              {FONT_OPTIONS.map((f) => (
+                <option key={f.value} value={f.value}>{f.label}</option>
+              ))}
+            </select>
           </div>
 
           <div className="h-4.5 w-[1px] bg-slate-800 shrink-0" />
@@ -1278,6 +1436,67 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
             title="Underline (Ctrl+U)"
           >
             <Underline size={11} className="stroke-[2.5]" />
+          </button>
+
+          <div className="h-4.5 w-[1px] bg-slate-800 shrink-0" />
+
+          {/* Lists (bulleted / numbered) */}
+          <button
+            onClick={() => runFormat('insertUnorderedList')}
+            className="p-1 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition-all cursor-pointer"
+            title="Bulleted List"
+          >
+            <List size={11} className="stroke-[2.5]" />
+          </button>
+          <button
+            onClick={() => runFormat('insertOrderedList')}
+            className="p-1 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition-all cursor-pointer"
+            title="Numbered List"
+          >
+            <ListOrdered size={11} className="stroke-[2.5]" />
+          </button>
+
+          <div className="h-4.5 w-[1px] bg-slate-800 shrink-0" />
+
+          {/* Text alignment controls */}
+          <button
+            onClick={() => runFormat('justifyLeft')}
+            className="p-1 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition-all cursor-pointer"
+            title="Align Left"
+          >
+            <AlignLeft size={11} className="stroke-[2.5]" />
+          </button>
+          <button
+            onClick={() => runFormat('justifyCenter')}
+            className="p-1 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition-all cursor-pointer"
+            title="Align Center"
+          >
+            <AlignCenter size={11} className="stroke-[2.5]" />
+          </button>
+          <button
+            onClick={() => runFormat('justifyRight')}
+            className="p-1 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition-all cursor-pointer"
+            title="Align Right"
+          >
+            <AlignRight size={11} className="stroke-[2.5]" />
+          </button>
+
+          <div className="h-4.5 w-[1px] bg-slate-800 shrink-0" />
+
+          {/* Indentation */}
+          <button
+            onClick={() => runFormat('outdent')}
+            className="p-1 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition-all cursor-pointer"
+            title="Decrease Indent"
+          >
+            <IndentDecrease size={11} className="stroke-[2.5]" />
+          </button>
+          <button
+            onClick={() => runFormat('indent')}
+            className="p-1 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition-all cursor-pointer"
+            title="Increase Indent"
+          >
+            <IndentIncrease size={11} className="stroke-[2.5]" />
           </button>
 
           <div className="h-4.5 w-[1px] bg-slate-800 shrink-0" />

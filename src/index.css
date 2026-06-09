@@ -117,3 +117,18 @@
   animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/*
+ * Inline editing placeholders.
+ * Rendered purely via CSS from the data-placeholder attribute, and only while the
+ * field is focused (being edited). A blank field therefore shows nothing in the
+ * normal preview or print output — the hint only appears once you click into it.
+ * The hint is never part of the field's real content, so it never exports to
+ * PDF/DOCX/TXT.
+ */
+.editable-field:empty:focus::before {
+  content: attr(data-placeholder);
+  opacity: 0.4;
+  font-style: italic;
+  pointer-events: none;
+}
+

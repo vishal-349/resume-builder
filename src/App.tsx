@@ -51,7 +51,8 @@ import {
   Globe,
   Upload,
   FileSpreadsheet,
-  HelpCircle
+  HelpCircle,
+  Trash2
 } from 'lucide-react';
 
 export default function App() {
@@ -66,6 +67,7 @@ export default function App() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [successToast, setSuccessToast] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [newTemplateName, setNewTemplateName] = useState('');
   const [resetConfirm, setResetConfirm] = useState(false);
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
 
@@ -112,40 +114,18 @@ export default function App() {
     setSuccessToast(`Reading and loading "${file.name}"...`);
     try {
       const extractedText = await parseFileToText(file);
-      
-      setSuccessToast('Formulating ATS structure with Gemini AI...');
-      let parsedResume;
-      try {
-        const response = await fetch('/api/resume/parse', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: extractedText,
-            language: activeResume?.language || 'en'
-          })
-        });
 
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.error || `HTTP ${response.status}`);
-        }
+      setSuccessToast('Structuring sections locally...');
+      // Fully offline, deterministic parser — no network/AI dependency.
+      const parsedResume = parseRawResumeText(extractedText, activeResume?.language || 'en');
 
-        const data = await response.json();
-        parsedResume = data.resume;
-        triggerNotification(`Gemini AI successfully extracted details from "${file.name}"!`);
-      } catch (geminiErr: any) {
-        console.warn('Gemini parser failed, falling back to local patterns:', geminiErr);
-        setSuccessToast('Fitting details locally...');
-        parsedResume = parseRawResumeText(extractedText, activeResume?.language || 'en');
-        triggerNotification(`Imported "${file.name}" using local heuristics.`);
-      }
-      
       // Update resume document title to original filename without extension
       parsedResume.title = file.name.replace(/\.[^/.]+$/, "");
-      
-      // Store the parsed result securely inside local storage & state
+
+      // Store the parsed result inside local storage & state
       store.addImportedResume(parsedResume);
-      
+      triggerNotification(`Imported "${file.name}" successfully!`);
+
       setShowImportDialog(false);
     } catch (err: any) {
       console.error(err);
@@ -159,34 +139,12 @@ export default function App() {
     if (rawPastedText.trim().length === 0) return;
     setIsImportLoading(true);
     try {
-      setSuccessToast('Formulating structure with Gemini AI...');
-      let parsed;
-      try {
-        const response = await fetch('/api/resume/parse', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: rawPastedText,
-            language: activeResume?.language || 'en'
-          })
-        });
+      setSuccessToast('Structuring sections locally...');
+      // Fully offline, deterministic parser — no network/AI dependency.
+      const parsed = parseRawResumeText(rawPastedText, activeResume?.language || 'en');
 
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.error || `HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        parsed = data.resume;
-        triggerNotification('Gemini AI parsed and imported text successfully!');
-      } catch (geminiErr: any) {
-        console.warn('Gemini parser failed, falling back to local patterns:', geminiErr);
-        parsed = parseRawResumeText(rawPastedText, activeResume?.language || 'en');
-        triggerNotification('Imported text using local heuristics.');
-      }
-
-      // Set active parsed resume
-      store.restoreBackup([...storeState.resumes, parsed], parsed.id);
+      store.addImportedResume(parsed);
+      triggerNotification('Imported pasted text successfully!');
       setRawPastedText('');
       setShowImportDialog(false);
     } catch (err: any) {
@@ -296,6 +254,37 @@ export default function App() {
             Autosaved
           </div>
 
+          {/* Compact ATS Score indicator — lives in the ribbon so it never overlaps the resume */}
+          {atsResult && (
+            <div
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-200 select-none shadow-xxs"
+              title={`ATS Score: ${atsResult.score}% — ${atsResult.grade}`}
+            >
+              <div className="relative w-6 h-6 shrink-0">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" stroke="#e2e8f0" strokeWidth="3" fill="none" />
+                  <circle
+                    cx="12" cy="12" r="10"
+                    stroke={atsResult.score > 75 ? '#0d9488' : atsResult.score > 50 ? '#f59e0b' : '#ef4444'}
+                    strokeWidth="3" fill="none"
+                    strokeDasharray="62.8"
+                    strokeDashoffset={62.8 - (62.8 * atsResult.score) / 100}
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center text-[8px] font-extrabold text-slate-700">
+                  {atsResult.score}
+                </div>
+              </div>
+              <div className="flex flex-col leading-none">
+                <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">ATS</span>
+                <span className={`text-[10px] font-extrabold leading-tight ${
+                  atsResult.score > 75 ? 'text-teal-600' : atsResult.score > 50 ? 'text-amber-500' : 'text-red-500'
+                }`}>{atsResult.grade}</span>
+              </div>
+            </div>
+          )}
+
           <button
             onClick={handleExportPDFClick}
             className="bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold text-sm shadow-sm hover:bg-indigo-700 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer animate-fade-in"
@@ -313,14 +302,14 @@ export default function App() {
         <div className="hidden md:flex flex-1 w-full min-h-0 divide-x divide-slate-200">
           
           {/* Left panel tabs sidebar selector */}
-          <div className="w-16 bg-white shrink-0 flex flex-col items-center justify-between py-6 gap-6 border-r border-slate-200 no-print shadow-xs z-10">
-            <div className="flex flex-col gap-4 w-full px-2.5">
+          <div className="w-24 bg-white shrink-0 flex flex-col items-center justify-between py-6 gap-6 border-r border-slate-200 no-print shadow-xs z-10">
+            <div className="flex flex-col gap-3 w-full px-2">
               {[
                 { id: 'editor', icon: FileText, label: 'Form Builder' },
                 { id: 'templates', icon: LayoutGrid, label: '25 Presets' },
                 { id: 'customize', icon: Sliders, label: 'Visual Custom' },
                 { id: 'sections', icon: Settings, label: 'Section Manager' },
-                { id: 'portfolio', icon: Globe, label: 'Portfolio site' },
+                { id: 'portfolio', icon: Globe, label: 'Portfolio Site' },
                 { id: 'history', icon: History, label: 'Documents' },
                 { id: 'dashboard', icon: Award, label: 'ATS & Storage' },
               ].map((tb) => {
@@ -329,14 +318,15 @@ export default function App() {
                   <button
                     key={tb.id}
                     onClick={() => setActiveTab(tb.id as any)}
-                    className={`p-3 rounded-xl flex flex-col items-center gap-1 group transition-all relative ${
+                    title={tb.label}
+                    className={`px-1.5 py-2.5 rounded-xl flex flex-col items-center gap-1 group transition-all relative ${
                       isSel
                         ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100'
                         : 'text-slate-400 hover:text-slate-800 hover:bg-slate-100/50'
                     }`}
                   >
-                    <tb.icon size={16} />
-                    <span className="text-[9px] font-bold block scale-90 tracking-tight leading-none mt-1 text-center select-none truncate w-14">
+                    <tb.icon size={16} className="shrink-0" />
+                    <span className="text-[9.5px] font-bold block tracking-tight leading-tight mt-1 text-center select-none w-full break-words">
                       {tb.label}
                     </span>
                   </button>
@@ -392,6 +382,74 @@ export default function App() {
 
                   {activeTab === 'templates' && (
                     <div className="space-y-4">
+                      {/* Save & reuse custom templates (stored locally) */}
+                      <div className="bg-slate-50/60 border border-slate-100 rounded-xl p-3.5 space-y-3">
+                        <div>
+                          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">My Templates</h4>
+                          <p className="text-[9.5px] text-slate-450 font-medium mt-1">Save your current design (colors, fonts, layout & section options) and reuse it anytime.</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Name this design..."
+                            value={newTemplateName}
+                            onChange={(e) => setNewTemplateName(e.target.value)}
+                            className="flex-1 text-xxs px-3 py-2 bg-white border border-slate-205 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-indigo-500 shadow-xxs"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const t = store.saveCurrentAsTemplate(newTemplateName);
+                              setNewTemplateName('');
+                              if (t) triggerNotification(`Saved design "${t.name}" locally!`);
+                            }}
+                            title="Save current design as a reusable template"
+                            className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 transition-all text-white rounded-lg text-xxs font-bold flex items-center gap-1 shrink-0 cursor-pointer"
+                          >
+                            <Plus size={13} />
+                            Save
+                          </button>
+                        </div>
+
+                        {storeState.customTemplates.length > 0 && (
+                          <div className="space-y-1.5 pt-1">
+                            {storeState.customTemplates.map((ct) => {
+                              const isCurrent = activeResume.templateId === ct.id;
+                              return (
+                                <div
+                                  key={ct.id}
+                                  className={`flex items-center justify-between gap-2 p-2 rounded-lg border bg-white transition-all ${
+                                    isCurrent ? 'border-indigo-600 shadow-xxs' : 'border-slate-100 hover:border-slate-200'
+                                  }`}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      store.applyCustomTemplate(ct.id);
+                                      triggerNotification(`Applied your design: ${ct.name}!`);
+                                    }}
+                                    className="flex items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
+                                    title="Apply this saved design"
+                                  >
+                                    <span className="w-5 h-5 rounded shrink-0 border border-slate-200" style={{ backgroundColor: ct.styles.primaryColor }} />
+                                    <span className="text-xxs font-bold text-slate-800 truncate">{ct.name}</span>
+                                    {isCurrent && <span className="text-[8px] bg-indigo-50 text-indigo-700 font-bold uppercase px-1.5 py-0.5 rounded-full font-mono shrink-0">Active</span>}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => store.deleteCustomTemplate(ct.id)}
+                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all cursor-pointer shrink-0"
+                                    title="Delete saved template"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
                       {/* Search box templates */}
                       <div className="relative">
                         <Search className="absolute left-3 top-2.5 size-3.5 text-slate-405" />
@@ -476,38 +534,7 @@ export default function App() {
           {/* Right Panel Canvas (66% screen width) - Sticky Sheet PREVIEW */}
           <div className="flex-1 bg-slate-100 overflow-y-auto p-12 relative flex flex-col items-center min-h-0 h-[calc(100vh-64px)]">
             
-            {/* Top right floating ATS Gauge Card */}
-            <div className="absolute top-8 right-8 w-32 bg-white rounded-2xl shadow-lg border border-slate-200 p-4 text-center space-y-2 z-20 no-print animate-fade-in hover:shadow-xl transition-all">
-              <div className="relative w-14 h-14 mx-auto">
-                <svg className="w-full h-full transform -rotate-90">
-                  <circle cx="28" cy="28" r="24" stroke="#f1f5f9" strokeWidth="5" fill="none"/>
-                  <circle 
-                    cx="28" 
-                    cy="28" 
-                    r="24" 
-                    stroke={(atsResult?.score || 0) > 75 ? '#0d9488' : (atsResult?.score || 0) > 50 ? '#f59e0b' : '#ef4444'}
-                    strokeWidth="5" 
-                    fill="none" 
-                    strokeDasharray="150.8" 
-                    strokeDashoffset={150.8 - (150.8 * (atsResult?.score || 0)) / 100}
-                    className="transition-all duration-500"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center font-extrabold text-xs text-slate-800">
-                  {atsResult?.score || 0}%
-                </div>
-              </div>
-              <div>
-                <div className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest leading-none">ATS SCORE</div>
-                <div className={`text-[10px] font-extrabold mt-1 leading-none ${
-                  (atsResult?.score || 0) > 75 ? 'text-teal-600' : (atsResult?.score || 0) > 50 ? 'text-amber-500' : 'text-red-500'
-                }`}>
-                  {atsResult?.grade}
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom floating control bar pill layout */}
+              {/* Bottom floating control bar pill layout */}
             <div className="absolute bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 flex items-center bg-white/95 backdrop-blur-md shadow-xl rounded-full px-5 py-2.5 border border-slate-200 gap-4 z-20 no-print hover:bg-white transition-all">
               <button
                 onClick={handleExportPDFClick}

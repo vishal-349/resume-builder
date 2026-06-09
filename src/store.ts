@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Resume, ResumeSection, SectionType, LanguageCode, ResumeStyles } from './types';
+import { Resume, ResumeSection, SectionType, LanguageCode, ResumeStyles, SectionLayout, CustomTemplate } from './types';
 import { TRANSLATIONS } from './translations';
 
 const STORAGE_KEY = 'premium_resume_builder_data';
@@ -256,6 +256,7 @@ export function createDemoResume(lang: LanguageCode = 'en'): Resume {
 export interface StoreState {
   resumes: Resume[];
   activeResumeId: string | null;
+  customTemplates: CustomTemplate[];
   past: Resume[][];
   future: Resume[][];
 }
@@ -269,6 +270,7 @@ export const loadInitialState = (): StoreState => {
         return {
           resumes: parsed.resumes,
           activeResumeId: parsed.activeResumeId || parsed.resumes[0].id,
+          customTemplates: Array.isArray(parsed.customTemplates) ? parsed.customTemplates : [],
           past: [],
           future: []
         };
@@ -283,10 +285,11 @@ export const loadInitialState = (): StoreState => {
   const fallbackState: StoreState = {
     resumes: [demo],
     activeResumeId: demo.id,
+    customTemplates: [],
     past: [],
     future: []
   };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ resumes: fallbackState.resumes, activeResumeId: fallbackState.activeResumeId }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ resumes: fallbackState.resumes, activeResumeId: fallbackState.activeResumeId, customTemplates: [] }));
   return fallbackState;
 };
 
@@ -316,6 +319,7 @@ export class ResumeStoreManager {
         JSON.stringify({
           resumes: this.state.resumes,
           activeResumeId: this.state.activeResumeId,
+          customTemplates: this.state.customTemplates,
         })
       );
     } catch (e) {
@@ -795,6 +799,58 @@ export class ResumeStoreManager {
       ...resume,
       styles: { ...resume.styles, ...styles },
     }));
+  }
+
+  public updateSectionLayout(sectionId: string, layout: Partial<SectionLayout>) {
+    this.updateActiveResume((resume) => {
+      const sections = resume.sections.map((sec) =>
+        sec.id === sectionId ? { ...sec, layout: { ...sec.layout, ...layout } } : sec
+      );
+      return { ...resume, sections };
+    });
+  }
+
+  // ---- Custom templates (user-saved designs, persisted locally) ----
+
+  public saveCurrentAsTemplate(name: string) {
+    const active = this.getActiveResume();
+    if (!active) return;
+    const sectionLayouts: Record<string, SectionLayout> = {};
+    active.sections.forEach((sec) => {
+      if (sec.layout) sectionLayouts[sec.type] = { ...sec.layout };
+    });
+    const template: CustomTemplate = {
+      id: `tpl-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      name: name.trim() || `My Template ${this.state.customTemplates.length + 1}`,
+      createdAt: new Date().toISOString(),
+      styles: { ...active.styles },
+      sectionLayouts,
+    };
+    this.state.customTemplates = [...this.state.customTemplates, template];
+    this.emit();
+    return template;
+  }
+
+  public applyCustomTemplate(templateId: string) {
+    const template = this.state.customTemplates.find((t) => t.id === templateId);
+    if (!template) return;
+    this.updateActiveResume((resume) => {
+      const sections = resume.sections.map((sec) => {
+        const layout = template.sectionLayouts[sec.type];
+        return layout ? { ...sec, layout: { ...layout } } : { ...sec, layout: undefined };
+      });
+      return {
+        ...resume,
+        templateId: templateId,
+        styles: { ...resume.styles, ...template.styles },
+        sections,
+      };
+    });
+  }
+
+  public deleteCustomTemplate(templateId: string) {
+    this.state.customTemplates = this.state.customTemplates.filter((t) => t.id !== templateId);
+    this.emit();
   }
 
   public updateSectionHeader(sectionId: string, newName: string) {

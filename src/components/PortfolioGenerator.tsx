@@ -23,7 +23,10 @@ export default function PortfolioGenerator({ resume }: PortfolioGeneratorProps) 
   const experiences = resume.sections.find(s => s.type === 'experience')?.items || [];
   const projects = resume.sections.find(s => s.type === 'projects')?.items || [];
 
-  const shareableUrl = `https://ais-pre-yk4qbywsofegodvxevew5c-90339329094.asia-southeast1.run.app/portfolio/${resume.id}`;
+  // Self-referential link based on wherever the static site is hosted — no
+  // dependency on any external/remote service.
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const shareableUrl = `${origin}/portfolio/${resume.id}`;
 
   const copyUrl = () => {
     navigator.clipboard.writeText(shareableUrl);

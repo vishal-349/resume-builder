@@ -25,14 +25,6 @@ export const COLOR_PRESETS: ColorPreset[] = [
   { id: 'cyber', name: 'Tech Terminal', primary: '#059669', text: '#022c22', bg: '#f0fdf4' },
 ];
 
-export const FONTS = [
-  { id: 'sans', name: 'Inter (Clean Sans)', className: 'font-sans' },
-  { id: 'serif', name: 'Georgia (Academic Serif)', className: 'font-serif' },
-  { id: 'mono', name: 'JetBrains Mono (Tech Mono)', className: 'font-mono' },
-  { id: 'space', name: 'Space Grotesk (Modern Bold)', className: 'font-sans' },
-  { id: 'outfit', name: 'Outfit (SaaS Premium)', className: 'font-sans' },
-];
-
 export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
   {
     id: 'ats-friendly',

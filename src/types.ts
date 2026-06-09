@@ -16,6 +16,24 @@ export interface ResumeStyles {
   sectionHeadingSize: 'sm' | 'md' | 'lg';
   sectionHeadingAlignment: 'left' | 'center' | 'right';
   borderRadius: 'none' | 'sm' | 'md' | 'lg' | 'full';
+  lineSpacing?: 'tight' | 'normal' | 'relaxed';
+  /**
+   * Where the contact details (email/phone/links) sit, independent of the chosen
+   * template. 'template' keeps the template's own header design.
+   */
+  headerLayout?: 'template' | 'right' | 'horizontal' | 'stacked';
+}
+
+/**
+ * Per-section display customization. Lets the user override how an individual
+ * section renders, on top of whatever template they started from. All fields are
+ * optional so existing resumes keep their current look.
+ */
+export interface SectionLayout {
+  showTitle?: boolean;                          // default true
+  align?: 'left' | 'center' | 'right';          // content alignment, default left
+  columns?: 1 | 2 | 3;                          // grid columns for list-style sections
+  skillStyle?: 'chips' | 'list' | 'inline';     // skills section only, default 'chips'
 }
 
 export interface PersonalInfo {
@@ -150,7 +168,17 @@ export interface ResumeSection {
   name: string; // Custom editable section title!
   visible: boolean;
   collapsed?: boolean;
+  layout?: SectionLayout; // Per-section display overrides
   items: any[]; // Depends on type
+}
+
+/** A user-saved custom design (styles + per-section layout), persisted locally. */
+export interface CustomTemplate {
+  id: string;
+  name: string;
+  createdAt: string;
+  styles: ResumeStyles;
+  sectionLayouts: Record<string, SectionLayout>; // keyed by section type
 }
 
 export interface Resume {

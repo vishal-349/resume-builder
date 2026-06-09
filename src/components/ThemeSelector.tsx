@@ -6,8 +6,9 @@
 import React from 'react';
 import { Resume, ResumeStyles } from '../types';
 import { store } from '../store';
-import { COLOR_PRESETS, FONTS } from '../templates';
-import { Palette, Type, LayoutGrid, Sliders, Check } from 'lucide-react';
+import { COLOR_PRESETS } from '../templates';
+import { FONT_OPTIONS, resolveFontStack } from '../fonts';
+import { Palette, Type, Sliders, LayoutGrid } from 'lucide-react';
 
 interface ThemeSelectorProps {
   resume: Resume;
@@ -86,22 +87,64 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
           Typography Font Family
         </h4>
         <div className="space-y-2">
-          {FONTS.map((font) => (
-            <button
-              key={font.id}
-              onClick={() => handleStyleChange('fontFamily', font.id)}
-              className={`w-full flex items-center justify-between p-3 rounded-lg border text-left transition-all ${
-                styles.fontFamily === font.id
-                  ? 'border-indigo-600 bg-indigo-50/10 font-medium'
-                  : 'border-slate-100 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-200'
-              }`}
-            >
-              <span className={`text-xs text-slate-805 ${font.className}`}>
-                {font.name}
-              </span>
-              {styles.fontFamily === font.id && <Check size={14} className="text-indigo-600" />}
-            </button>
-          ))}
+          <select
+            value={FONT_OPTIONS.some((f) => f.value === styles.fontFamily) ? styles.fontFamily : ''}
+            onChange={(e) => handleStyleChange('fontFamily', e.target.value)}
+            className="w-full text-sm px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-indigo-500 cursor-pointer text-slate-800"
+            style={{ fontFamily: resolveFontStack(styles.fontFamily) }}
+          >
+            {/* Show the active preset token (sans/serif/mono/...) if not a named font yet */}
+            {!FONT_OPTIONS.some((f) => f.value === styles.fontFamily) && (
+              <option value="">{`Preset: ${styles.fontFamily}`}</option>
+            )}
+            {FONT_OPTIONS.map((font) => (
+              <option key={font.value} value={font.value} style={{ fontFamily: resolveFontStack(font.value) }}>
+                {font.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xxxxs text-slate-400 font-sans">
+            Applies instantly to the live preview and the exported PDF / Word document.
+          </p>
+          <div
+            className="mt-1 p-3 rounded-lg border border-slate-100 bg-slate-50/60 text-slate-700 text-sm"
+            style={{ fontFamily: resolveFontStack(styles.fontFamily) }}
+          >
+            The quick brown fox jumps over the lazy dog — 1234567890
+          </div>
+        </div>
+      </div>
+
+      {/* Contact / Header Layout — move contact details independent of template */}
+      <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-xxs">
+        <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-2 mb-1">
+          <LayoutGrid size={16} className="text-indigo-600" />
+          Contact / Header Layout
+        </h4>
+        <p className="text-xxxxs text-slate-400 mb-3">Reposition your contact details regardless of the chosen template.</p>
+        <div className="grid grid-cols-2 gap-2">
+          {([
+            { v: 'template', label: 'Template Default', desc: "Use the template's header" },
+            { v: 'right', label: 'Contact Right', desc: 'Name left, contact right' },
+            { v: 'horizontal', label: 'Below Name', desc: 'Centered, contact row under name' },
+            { v: 'stacked', label: 'Left Stacked', desc: 'Left-aligned, contact under name' },
+          ] as const).map((opt) => {
+            const current = styles.headerLayout || 'template';
+            return (
+              <button
+                key={opt.v}
+                onClick={() => handleStyleChange('headerLayout', opt.v)}
+                className={`p-2.5 rounded-lg border text-left transition-all ${
+                  current === opt.v
+                    ? 'border-indigo-600 bg-indigo-50/10 shadow-xxs'
+                    : 'border-slate-100 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-200'
+                }`}
+              >
+                <p className="text-xxs font-bold text-slate-800 leading-none">{opt.label}</p>
+                <span className="text-xxxxs text-slate-400 mt-1 block leading-snug">{opt.desc}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -130,6 +173,29 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
                 }`}
               >
                 {sz}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Line spacing (applies to summary & description prose) */}
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-slate-500 flex justify-between">
+            <span>Line Spacing</span>
+            <span className="font-mono text-indigo-600 font-bold uppercase text-xxxxs">{styles.lineSpacing || 'normal'}</span>
+          </label>
+          <div className="grid grid-cols-3 gap-1">
+            {(['tight', 'normal', 'relaxed'] as const).map((ls) => (
+              <button
+                key={ls}
+                onClick={() => handleStyleChange('lineSpacing', ls)}
+                className={`py-1.5 rounded text-xxs font-medium border capitalize ${
+                  (styles.lineSpacing || 'normal') === ls
+                    ? 'border-indigo-600 bg-indigo-50/10 text-indigo-700 font-semibold'
+                    : 'border-slate-100 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {ls}
               </button>
             ))}
           </div>

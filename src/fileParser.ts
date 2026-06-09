@@ -1,4 +1,10 @@
 import mammoth from 'mammoth';
+import * as pdfjsLib from 'pdfjs-dist';
+// Bundled worker URL — resolved and emitted by Vite so the parser works fully offline.
+import PdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+
+// Wire the bundled worker once at module load (no CDN / network dependency).
+pdfjsLib.GlobalWorkerOptions.workerSrc = PdfWorkerUrl;
 
 /**
  * Parses an uploaded file into raw plain text client-side.
@@ -20,35 +26,13 @@ export async function parseFileToText(file: File): Promise<string> {
 }
 
 /**
- * Extracts plain text from a PDF file using pdfjs-dist via resilient CDN loading
+ * Extracts plain text from a PDF file using the bundled pdfjs-dist engine.
+ * Runs entirely offline — no CDN or network access required.
  */
 async function parsePdfFile(file: File): Promise<string> {
   try {
-    let pdfjs = (window as any).pdfjsLib;
-
-    if (!pdfjs) {
-      // Dynamically load PDFJS from a stable, highly-compatible CDN
-      await new Promise<void>((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
-        script.onload = () => {
-          pdfjs = (window as any).pdfjsLib;
-          if (pdfjs) {
-            pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-            resolve();
-          } else {
-            reject(new Error('PDF.js object not available on window.'));
-          }
-        };
-        script.onerror = () => reject(new Error('Failed to load PDF.js engine from cloud CDN.'));
-        document.head.appendChild(script);
-      });
-    } else {
-      pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-    }
-
     const arrayBuffer = await file.arrayBuffer();
-    const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
     const pdf = await loadingTask.promise;
     let fullText = '';
 

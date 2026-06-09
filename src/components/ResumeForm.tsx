@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Resume, ResumeSection, SectionType } from '../types';
 import { store } from '../store';
 import { PlusCircle, Trash2, ChevronDown, ChevronRight, Eye, EyeOff, Clipboard, Plus } from 'lucide-react';
@@ -16,9 +16,55 @@ interface ResumeFormProps {
 export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
   const sections = resume.sections;
 
+  // Tracks which item currently has an active Delete/Cancel confirmation prompt.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
   const handleUpdateItem = (sectionId: string, itemId: string, data: any) => {
     store.updateSectionItem(sectionId, itemId, data);
     onUpdate();
+  };
+
+  /**
+   * Renders an explicit two-step delete control. A plain trash button first;
+   * once clicked it expands into "Delete" / "Cancel" — deletion only proceeds
+   * when the user explicitly confirms.
+   */
+  const renderDeleteControl = (sectionId: string, itemId: string, posClass: string) => {
+    if (confirmDeleteId === itemId) {
+      return (
+        <div className={`${posClass} flex items-center gap-1 bg-red-50 border border-red-200 rounded-lg px-1.5 py-1 z-10 animate-fade-in shadow-sm`}>
+          <button
+            type="button"
+            onClick={() => {
+              handleDeleteItem(sectionId, itemId);
+              setConfirmDeleteId(null);
+            }}
+            className="px-1.5 py-0.5 bg-red-600 text-white rounded text-[10px] font-bold hover:bg-red-700 transition-colors cursor-pointer"
+            title="Confirm deletion"
+          >
+            Delete
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirmDeleteId(null)}
+            className="px-1.5 py-0.5 text-slate-500 hover:text-slate-700 rounded text-[10px] font-bold hover:bg-slate-200 transition-colors cursor-pointer"
+            title="Cancel deletion"
+          >
+            Cancel
+          </button>
+        </div>
+      );
+    }
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirmDeleteId(itemId)}
+        className={`${posClass} p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-white transition-all cursor-pointer`}
+        title="Delete entry"
+      >
+        <Trash2 size={12} />
+      </button>
+    );
   };
 
   const handleAddField = (sectionId: string, type: SectionType) => {
@@ -179,13 +225,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                   <div className="space-y-4">
                     {sec.items.map((exp, expIdx) => (
                       <div key={exp.id} className="p-4 bg-slate-50 border border-slate-105 rounded-xl space-y-3 relative group/item animate-fade-in">
-                        <button
-                          onClick={() => handleDeleteItem(sec.id, exp.id)}
-                          className="absolute top-3.5 right-3.5 p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-white transition-all shadow-xxxxs cursor-pointer"
-                          title="Wipe work entry"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        {renderDeleteControl(sec.id, exp.id, 'absolute top-3.5 right-3.5')}
 
                         <div className="text-[10px] font-bold text-slate-450 uppercase select-none tracking-wide">Work Position #{expIdx + 1}</div>
                         
@@ -286,12 +326,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                   <div className="space-y-4">
                     {sec.items.map((edu, eduIdx) => (
                       <div key={edu.id} className="p-4 bg-slate-50 border border-slate-105 rounded-xl space-y-3 relative group/item animate-fade-in">
-                        <button
-                          onClick={() => handleDeleteItem(sec.id, edu.id)}
-                          className="absolute top-3.5 right-3.5 p-1.5 text-slate-400 hover:text-red-650 rounded-md hover:bg-white transition-all shadow-xxxxs cursor-pointer"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        {renderDeleteControl(sec.id, edu.id, 'absolute top-3.5 right-3.5')}
 
                         <div className="text-[10px] font-bold text-slate-450 uppercase select-none tracking-wide">Academic Degree #{eduIdx + 1}</div>
 
@@ -392,7 +427,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                     {sec.items.length > 0 && (
                       <div className="grid grid-cols-1 gap-2 pb-2">
                         {sec.items.map((sk) => (
-                          <div key={sk.id} className="p-1.5 bg-slate-50 border border-slate-100 rounded-xl flex items-center gap-2 relative animate-fade-in pr-9 hover:border-slate-205 transition-all shadow-xxxxs">
+                          <div key={sk.id} className="p-1.5 bg-slate-50 border border-slate-100 rounded-xl flex items-center gap-2 animate-fade-in hover:border-slate-205 transition-all shadow-xxxxs">
                             <input
                               type="text"
                               placeholder="Skill spec (e.g. React)"
@@ -411,13 +446,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                               <option value="Advanced">Advanced</option>
                               <option value="Expert">Expert</option>
                             </select>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteItem(sec.id, sk.id)}
-                              className="p-1 text-slate-400 hover:text-red-500 hover:bg-white rounded absolute right-2 cursor-pointer transition-colors"
-                            >
-                              <Trash2 size={12} />
-                            </button>
+                            {renderDeleteControl(sec.id, sk.id, 'shrink-0')}
                           </div>
                         ))}
                       </div>
@@ -439,13 +468,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                   <div className="space-y-3">
                     {sec.items.map((proj) => (
                       <div key={proj.id} className="p-4 bg-slate-50 border rounded-xl space-y-3 relative animate-fade-in pr-10">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteItem(sec.id, proj.id)}
-                          className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-red-500 rounded hover:bg-white cursor-pointer"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        {renderDeleteControl(sec.id, proj.id, 'absolute top-4 right-4')}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div className="space-y-1">
                             <label className="text-xxxxs font-bold text-slate-500 uppercase">Project Title</label>
@@ -540,13 +563,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                   <div className="space-y-3">
                     {sec.items.map((item, itemIdx) => (
                       <div key={item.id} className="p-4 bg-slate-50 border rounded-xl relative space-y-3 pr-10 animate-fade-in border-slate-105">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteItem(sec.id, item.id)}
-                          className="absolute top-4 right-4 p-1 rounded hover:bg-white text-slate-400 hover:text-red-650 cursor-pointer"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        {renderDeleteControl(sec.id, item.id, 'absolute top-4 right-4')}
 
                         <span className="text-[9px] font-bold text-slate-400 uppercase font-mono tracking-widest leading-none">Record #{itemIdx+1}</span>
 
