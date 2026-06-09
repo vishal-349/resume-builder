@@ -98,6 +98,10 @@ const EditableText = React.memo(({
     ref: elementRef as any,
     contentEditable: true,
     suppressContentEditableWarning: true,
+    // Native browser spell-checking: red underlines on misspellings + a
+    // right-click context menu with suggestions that replace the word on click.
+    // Fully client-side, no backend, and independent of React renders.
+    spellCheck: true,
     onBlur: commit,
     onKeyDown: handleKeyDown,
     className: `${className} editable-field select-text outline-hidden focus:ring-1 focus:ring-indigo-400 focus:bg-indigo-50/10 hover:bg-slate-100/10 transition-all rounded-sm px-0.5 inline-block min-w-[20px]`,
@@ -116,6 +120,23 @@ const EditableText = React.memo(({
 
   return React.createElement(tagName, wrapperProps);
 }, (prevProps, nextProps) => {
+  // While THIS exact field is the one currently focused/being edited, never
+  // re-render it. A re-render re-applies dangerouslySetInnerHTML which rewrites
+  // the node's HTML and destroys the live caret AND text selection. By skipping
+  // the render we let formatting (bold/italic/font/color) apply in-place while
+  // the user's selection is preserved — matching Google Docs / Word behavior.
+  if (typeof document !== 'undefined') {
+    const a = document.activeElement as HTMLElement | null;
+    if (
+      a &&
+      a.getAttribute('data-editable-field') === 'true' &&
+      a.getAttribute('data-section-id') === nextProps.sectionId &&
+      a.getAttribute('data-item-id') === (nextProps.itemId || '') &&
+      a.getAttribute('data-field-name') === nextProps.fieldName
+    ) {
+      return true;
+    }
+  }
   return (
     prevProps.value === nextProps.value &&
     prevProps.sectionId === nextProps.sectionId &&
@@ -135,6 +156,12 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
   const [pages, setPages] = useState<RenderBlock[][]>([]);
   const measuringRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Remembers the last text selection made inside an editable field, so that
+  // formatting triggered from a toolbar control (which can steal focus, e.g. the
+  // font <select>) can restore it before applying the command.
+  const savedRangeRef = useRef<Range | null>(null);
+  const savedEditableRef = useRef<HTMLElement | null>(null);
 
   // States for Selection Floating formatting panel
   const [showToolbar, setShowToolbar] = useState(false);
@@ -220,9 +247,11 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
       // Check if selection falls within an editable text node of LivePreview
       let node: Node | null = selection.anchorNode;
       let isInPreview = false;
+      let editableEl: HTMLElement | null = null;
       while (node) {
         if (node instanceof HTMLElement && node.hasAttribute('data-editable-field')) {
           isInPreview = true;
+          editableEl = node;
           break;
         }
         node = node.parentNode;
@@ -235,6 +264,9 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
 
       try {
         const range = selection.getRangeAt(0);
+        // Remember this selection so toolbar actions can restore it if focus moves.
+        savedRangeRef.current = range.cloneRange();
+        savedEditableRef.current = editableEl;
         const rect = range.getBoundingClientRect();
         
         // Offset 48px above selection bounds safely using viewport coords
@@ -255,16 +287,13 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
       const key = e.key.toLowerCase();
       if (key === 'b') {
         e.preventDefault();
-        document.execCommand('bold', false);
-        triggerActiveElementChange();
+        runFormat('bold');
       } else if (key === 'i') {
         e.preventDefault();
-        document.execCommand('italic', false);
-        triggerActiveElementChange();
+        runFormat('italic');
       } else if (key === 'u') {
         e.preventDefault();
-        document.execCommand('underline', false);
-        triggerActiveElementChange();
+        runFormat('underline');
       } else if (key === 'z') {
         e.preventDefault();
         if (e.shiftKey) {
@@ -294,7 +323,27 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
   }, []);
 
   const runFormat = (command: string, value: string = '') => {
+    // If focus moved to a toolbar control (e.g. the font dropdown) the live
+    // selection may be gone — restore the remembered range first so the command
+    // targets the text the user actually selected.
+    const el = savedEditableRef.current;
+    const range = savedRangeRef.current;
+    const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+    const selectionLost = !sel || sel.rangeCount === 0 || document.activeElement !== el;
+    if (el && range && selectionLost) {
+      el.focus();
+      sel?.removeAllRanges();
+      try { sel?.addRange(range); } catch { /* range may be stale */ }
+    }
+
     document.execCommand(command, false, value);
+
+    // Re-capture the (possibly shifted) selection so chained formatting and the
+    // floating toolbar keep working on the same text.
+    const sel2 = typeof window !== 'undefined' ? window.getSelection() : null;
+    if (sel2 && sel2.rangeCount > 0) {
+      savedRangeRef.current = sel2.getRangeAt(0).cloneRange();
+    }
     triggerActiveElementChange();
   };
 
