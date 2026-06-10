@@ -6,7 +6,7 @@
 import React, { useState, useRef, useLayoutEffect, useEffect, forwardRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Resume, ResumeSection } from '../types';
-import { Mail, Phone, MapPin, Link as LinkIcon, Linkedin, Github, ZoomIn, ZoomOut, Maximize2, Bold, Italic, Underline, Type, Sparkles, Paintbrush, X, List, ListOrdered, AlignLeft, AlignCenter, AlignRight, AlignJustify, IndentIncrease, IndentDecrease } from 'lucide-react';
+import { Mail, Phone, MapPin, Link as LinkIcon, Linkedin, Github, ZoomIn, ZoomOut, Maximize2, Bold, Italic, Underline, Type, Sparkles, Paintbrush, Brush, X, List, ListOrdered, AlignLeft, AlignCenter, AlignRight, AlignJustify, IndentIncrease, IndentDecrease } from 'lucide-react';
 import { store } from '../store';
 import { resolveFontStack, FONT_OPTIONS } from '../fonts';
 
@@ -171,6 +171,17 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
   // font <select>) can restore it before applying the command.
   const savedRangeRef = useRef<Range | null>(null);
   const savedEditableRef = useRef<HTMLElement | null>(null);
+
+  // Format Painter: captured formatting + armed state. The ref is read by the
+  // (effect-scoped) pointerup handler; the state drives the button highlight.
+  const [painterArmed, setPainterArmed] = useState(false);
+  const painterArmedRef = useRef(false);
+  const paintFormatRef = useRef<{
+    fontName: string; fontSizePx: number; color: string;
+    bold: boolean; italic: boolean; underline: boolean;
+  } | null>(null);
+  const paintSourceKeyRef = useRef('');
+  const setArmed = (v: boolean) => { painterArmedRef.current = v; setPainterArmed(v); };
 
   // States for Selection Floating formatting panel
   const [showToolbar, setShowToolbar] = useState(false);
@@ -365,9 +376,28 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
       setTimeout(() => { allowFocusedRerender = false; }, 0);
     };
 
-    // Global listener for pointerup to re-evaluate text selections instantly 
+    // Global listener for pointerup to re-evaluate text selections instantly.
+    // When the Format Painter is armed, the next NEW selection inside an editable
+    // gets the captured formatting applied, then the painter disarms.
     const handlePointerUp = () => {
-      setTimeout(handleSelectionChange, 10);
+      setTimeout(() => {
+        handleSelectionChange();
+        if (!painterArmedRef.current) return;
+        const sel = window.getSelection();
+        if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
+        let node: Node | null = sel.anchorNode;
+        let inPreview = false;
+        while (node) {
+          if (node instanceof HTMLElement && node.hasAttribute('data-editable-field')) { inPreview = true; break; }
+          node = node.parentNode;
+        }
+        if (!inPreview) return;
+        // Don't apply to the same selection used to capture the formatting.
+        if (rangeKey(sel.getRangeAt(0)) === paintSourceKeyRef.current) return;
+        applyPaintFormat();
+        setArmed(false);
+        paintFormatRef.current = null;
+      }, 10);
     };
 
     document.addEventListener('selectionchange', handleSelectionChange);
@@ -380,10 +410,45 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
     };
   }, []);
 
-  // Runs a formatting action with the user's text selection preserved: if focus
-  // moved to a toolbar control (e.g. the font/size dropdown) the remembered range
-  // is restored first, and the resulting selection is re-captured afterwards.
-  const withSelection = (fn: () => void) => {
+  // Character offset of a (container, offset) point within `root`'s text content.
+  const charOffset = (root: HTMLElement, container: Node, offset: number): number => {
+    const r = document.createRange();
+    r.setStart(root, 0);
+    try { r.setEnd(container, offset); } catch { return 0; }
+    return (r.cloneContents().textContent || '').length;
+  };
+
+  // Re-select text within `root` by character offsets (survives DOM rewrites that
+  // preserve text length, e.g. bold/font/size/color/alignment/case wrappers).
+  const restoreSelectionByOffsets = (root: HTMLElement, start: number, end: number) => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let n: Node | null, acc = 0;
+    let sN: Text | null = null, sO = 0, eN: Text | null = null, eO = 0;
+    while ((n = walker.nextNode())) {
+      const t = n as Text;
+      const len = t.nodeValue ? t.nodeValue.length : 0;
+      if (sN === null && acc + len >= start) { sN = t; sO = start - acc; }
+      if (acc + len >= end) { eN = t; eO = end - acc; break; }
+      acc += len;
+    }
+    if (!sN) return;
+    if (!eN) { eN = sN; eO = sN.nodeValue ? sN.nodeValue.length : 0; }
+    try {
+      const r = document.createRange();
+      r.setStart(sN, Math.min(sO, sN.nodeValue ? sN.nodeValue.length : 0));
+      r.setEnd(eN, Math.min(eO, eN.nodeValue ? eN.nodeValue.length : 0));
+      const s = window.getSelection();
+      s?.removeAllRanges();
+      s?.addRange(r);
+    } catch { /* ignore */ }
+  };
+
+  // Runs a formatting action with the user's text selection preserved across the
+  // change — matching Bold's behaviour for ALL toolbar tools. If focus moved to a
+  // toolbar control (font/size dropdown) the range is restored first; the selection
+  // is then re-applied by character offset after the DOM updates. `selectAll` is
+  // used for list ops where the text length changes (re-selects the whole block).
+  const withSelection = (fn: () => void, opts: { selectAll?: boolean } = {}) => {
     const el = savedEditableRef.current;
     const range = savedRangeRef.current;
     const sel = typeof window !== 'undefined' ? window.getSelection() : null;
@@ -394,7 +459,33 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
       try { sel?.addRange(range); } catch { /* range may be stale */ }
     }
 
+    let startOff = 0, endOff = 0, haveOffsets = false;
+    if (el && !opts.selectAll) {
+      const cur = window.getSelection();
+      if (cur && cur.rangeCount > 0) {
+        const rr = cur.getRangeAt(0);
+        startOff = charOffset(el, rr.startContainer, rr.startOffset);
+        endOff = charOffset(el, rr.endContainer, rr.endOffset);
+        haveOffsets = startOff !== endOff;
+      }
+    }
+
     fn();
+
+    if (el) {
+      el.focus();
+      if (opts.selectAll) {
+        try {
+          const r = document.createRange();
+          r.selectNodeContents(el);
+          const s = window.getSelection();
+          s?.removeAllRanges();
+          s?.addRange(r);
+        } catch { /* ignore */ }
+      } else if (haveOffsets) {
+        restoreSelectionByOffsets(el, Math.min(startOff, endOff), Math.max(startOff, endOff));
+      }
+    }
 
     const sel2 = typeof window !== 'undefined' ? window.getSelection() : null;
     if (sel2 && sel2.rangeCount > 0) {
@@ -474,7 +565,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
       } else {
         document.execCommand('insertHTML', false, newHtml);
       }
-    });
+    }, { selectAll: true });
   };
 
   // Alignment is a block property. execCommand('justifyX') styles the editable
@@ -506,6 +597,60 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
         fontEl.style.fontSize = `${px}px`;
       });
     });
+  };
+
+  // ---- Format Painter ----
+  const rangeKey = (r: Range) => `${r.startOffset}|${r.endOffset}|${r.toString()}`;
+
+  // Capture font family / size / color / bold / italic / underline from the
+  // current selection so it can be painted onto another selection.
+  const capturePaintFormat = (): boolean => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return false;
+    const node = sel.anchorNode;
+    const elx = (node && node.nodeType === Node.TEXT_NODE ? node.parentElement : node) as HTMLElement | null;
+    if (!elx) return false;
+    const cs = window.getComputedStyle(elx);
+    const primary = (cs.fontFamily || '').split(',')[0].replace(/['"]/g, '').trim();
+    const matched = FONT_OPTIONS.find((f) => f.value.toLowerCase() === primary.toLowerCase());
+    paintFormatRef.current = {
+      fontName: matched ? matched.value : primary,
+      fontSizePx: Math.round(parseFloat(cs.fontSize || '0')),
+      color: cs.color || '',
+      bold: document.queryCommandState('bold') || parseInt(cs.fontWeight || '400', 10) >= 600,
+      italic: document.queryCommandState('italic') || cs.fontStyle === 'italic',
+      underline: document.queryCommandState('underline') || (cs.textDecorationLine || '').includes('underline'),
+    };
+    paintSourceKeyRef.current = rangeKey(sel.getRangeAt(0));
+    return true;
+  };
+
+  // Paint the captured formatting onto the current selection.
+  const applyPaintFormat = () => {
+    const fmt = paintFormatRef.current;
+    if (!fmt) return;
+    withSelection(() => {
+      if (fmt.fontName) document.execCommand('fontName', false, fmt.fontName);
+      if (fmt.color) document.execCommand('foreColor', false, fmt.color);
+      if (fmt.bold !== document.queryCommandState('bold')) document.execCommand('bold');
+      if (fmt.italic !== document.queryCommandState('italic')) document.execCommand('italic');
+      if (fmt.underline !== document.queryCommandState('underline')) document.execCommand('underline');
+      if (fmt.fontSizePx) {
+        document.execCommand('fontSize', false, '7');
+        const root = savedEditableRef.current || (document.activeElement as HTMLElement | null);
+        root?.querySelectorAll('font[size="7"]').forEach((f) => {
+          const fontEl = f as HTMLElement;
+          fontEl.removeAttribute('size');
+          fontEl.style.fontSize = `${fmt.fontSizePx}px`;
+        });
+      }
+    });
+  };
+
+  // Toggle the painter: capture + arm on first click, cancel if already armed.
+  const togglePainter = () => {
+    if (painterArmedRef.current) { setArmed(false); paintFormatRef.current = null; return; }
+    if (capturePaintFormat()) setArmed(true);
   };
 
   const transformCase = (text: string, mode: 'upper' | 'lower' | 'title' | 'sentence'): string => {
@@ -1805,6 +1950,19 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
           </div>
 
           <div className="h-4.5 w-[1px] bg-slate-800 shrink-0" />
+
+          {/* Format Painter: capture formatting, then apply to the next selection */}
+          <button
+            onClick={togglePainter}
+            className={`p-1 rounded transition-all cursor-pointer ${
+              painterArmed
+                ? 'bg-indigo-500 text-white'
+                : 'hover:bg-slate-800 text-slate-300 hover:text-white'
+            }`}
+            title={painterArmed ? 'Format Painter armed — select target text to apply' : 'Format Painter — copy formatting to other text'}
+          >
+            <Brush size={11} className="stroke-[2.5]" />
+          </button>
 
           {/* Helper functions (remove formatting) */}
           <button
