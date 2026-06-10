@@ -32,6 +32,15 @@ function SVGQRCode({ value }: { value: string }) {
   );
 }
 
+// Point sizes offered in the toolbar font-size dropdown.
+const FONT_SIZE_OPTIONS = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72];
+
+// When true, the editable-field memo allows the *focused* field to re-render.
+// We normally skip that re-render to protect the caret/selection during inline
+// formatting, but undo/redo must update the focused field's content immediately
+// (otherwise Ctrl+Z appears to do nothing until the field loses focus).
+let allowFocusedRerender = false;
+
 // Inline Editable Rich Text block element
 const EditableText = React.memo(({
   sectionId,
@@ -125,7 +134,7 @@ const EditableText = React.memo(({
   // the node's HTML and destroys the live caret AND text selection. By skipping
   // the render we let formatting (bold/italic/font/color) apply in-place while
   // the user's selection is preserved — matching Google Docs / Word behavior.
-  if (typeof document !== 'undefined') {
+  if (!allowFocusedRerender && typeof document !== 'undefined') {
     const a = document.activeElement as HTMLElement | null;
     if (
       a &&
@@ -166,6 +175,9 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
   // States for Selection Floating formatting panel
   const [showToolbar, setShowToolbar] = useState(false);
   const [toolbarPosition, setToolbarPosition] = useState({ top: 0, left: 0 });
+  // Current font family / size of the active selection, shown in the toolbar dropdowns.
+  const [selFont, setSelFont] = useState('');
+  const [selSize, setSelSize] = useState('');
 
   // Dynamic Auto-fit for smaller devices/viewports using ResizeObserver
   useLayoutEffect(() => {
@@ -267,6 +279,46 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
         // Remember this selection so toolbar actions can restore it if focus moves.
         savedRangeRef.current = range.cloneRange();
         savedEditableRef.current = editableEl;
+
+        // Reflect the selection's font family + size in the toolbar dropdowns.
+        // Like Word/Google Docs: if the selection spans mixed fonts or sizes, the
+        // corresponding dropdown shows blank; only a uniform value is displayed.
+        const fonts = new Set<string>();
+        const sizes = new Set<number>();
+        const rootNode = range.commonAncestorContainer;
+        const rootEl = (rootNode.nodeType === Node.TEXT_NODE ? rootNode.parentElement : rootNode) as HTMLElement | null;
+        if (rootEl) {
+          const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, {
+            acceptNode: (n) =>
+              n.nodeValue && n.nodeValue.trim() && range.intersectsNode(n)
+                ? NodeFilter.FILTER_ACCEPT
+                : NodeFilter.FILTER_REJECT,
+          });
+          let tn: Node | null;
+          while ((tn = walker.nextNode())) {
+            const pe = (tn as Text).parentElement;
+            if (!pe) continue;
+            const cs = window.getComputedStyle(pe);
+            fonts.add((cs.fontFamily || '').split(',')[0].replace(/['"]/g, '').trim().toLowerCase());
+            sizes.add(Math.round(parseFloat(cs.fontSize || '0')));
+          }
+        }
+
+        if (fonts.size === 1) {
+          const primary = [...fonts][0];
+          const matchedFont = FONT_OPTIONS.find((f) => f.value.toLowerCase() === primary);
+          setSelFont(matchedFont ? matchedFont.value : '');
+        } else {
+          setSelFont(''); // mixed (or none) → blank, matching Word
+        }
+
+        if (sizes.size === 1) {
+          const px = [...sizes][0];
+          setSelSize(FONT_SIZE_OPTIONS.includes(px) ? String(px) : '');
+        } else {
+          setSelSize(''); // mixed → blank
+        }
+
         const rect = range.getBoundingClientRect();
         
         // Offset 48px above selection bounds safely using viewport coords
@@ -296,15 +348,21 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
         runFormat('underline');
       } else if (key === 'z') {
         e.preventDefault();
-        if (e.shiftKey) {
-          store.redo();
-        } else {
-          store.undo();
-        }
+        runHistory(e.shiftKey ? 'redo' : 'undo');
       } else if (key === 'y') {
         e.preventDefault();
-        store.redo();
+        runHistory('redo');
       }
+    };
+
+    // Undo/redo must force the currently-focused field to re-render so its content
+    // visibly reverts immediately (the editing-skip is bypassed for this update).
+    const runHistory = (dir: 'undo' | 'redo') => {
+      allowFocusedRerender = true;
+      if (dir === 'redo') store.redo();
+      else store.undo();
+      // Re-enable the caret-preserving skip after React has flushed the update.
+      setTimeout(() => { allowFocusedRerender = false; }, 0);
     };
 
     // Global listener for pointerup to re-evaluate text selections instantly 
@@ -347,6 +405,92 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
 
   const runFormat = (command: string, value: string = '') => {
     withSelection(() => document.execCommand(command, false, value));
+  };
+
+  // Convert a chunk of HTML (or plain text) into clean list lines: normalises
+  // <br>/<div>/<li> boundaries to newlines, strips tags, and removes any existing
+  // "- ", "•", "1." markers so they aren't duplicated by the real list markers.
+  const htmlToLines = (html: string): string[] =>
+    html
+      .replace(/<br\s*\/?>(?=)/gi, '\n')
+      // Treat both opening AND closing block/list tags as line boundaries. Browsers
+      // often serialize list items without a closing </li> (e.g. <li>a<li>b), so
+      // relying only on closing tags merged adjacent items together.
+      .replace(/<\/(div|p|li|h[1-6])>/gi, '\n')
+      .replace(/<(div|p|li|h[1-6])[^>]*>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .split(/\r?\n/)
+      .map((l) => l.replace(/^\s*(?:[-•*·–—]|\d+[.)])\s+/, '').trim())
+      .filter((l) => l.length > 0);
+
+  const escapeHtml = (s: string): string =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // Turn the selected lines into a real <ul>/<ol>. execCommand's list commands
+  // only produce a single <li> here because a description is one pre-line block;
+  // this splits per visual line and removes pre-existing bullet/number markers.
+  const applyList = (type: 'ul' | 'ol') => {
+    withSelection(() => {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      const el = savedEditableRef.current || (document.activeElement as HTMLElement | null);
+
+      const selStr = sel.toString().trim();
+      const fieldText = (el?.innerText || '').trim();
+      // "Whole field" when nothing is selected or the selection covers the entire
+      // field — the common "select all lines → make a list" case. Replacing the
+      // field's innerHTML is far more reliable than execCommand('insertHTML'),
+      // which mis-handles replacing an already-existing list.
+      const wholeField = !selStr || selStr === fieldText;
+
+      let sourceHtml = '';
+      if (wholeField) {
+        sourceHtml = el ? el.innerHTML : '';
+      } else {
+        const tmp = document.createElement('div');
+        tmp.appendChild(sel.getRangeAt(0).cloneContents());
+        sourceHtml = tmp.innerHTML;
+      }
+
+      const lines = htmlToLines(sourceHtml);
+      if (lines.length === 0) return;
+
+      // Toggle behaviour: if the target content is ALREADY a list of this type,
+      // clicking the button again removes it — converting the items back to plain
+      // lines (joined with <br>). Clicking the *other* list type switches type.
+      const detectHtml = wholeField && el ? el.innerHTML : sourceHtml;
+      const alreadyThisType = new RegExp(`<${type}[\\s>]`, 'i').test(detectHtml);
+
+      const newHtml = alreadyThisType
+        ? lines.map((l) => `- ${escapeHtml(l)}`).join('<br>')
+        : `<${type}>${lines.map((l) => `<li>${escapeHtml(l)}</li>`).join('')}</${type}>`;
+
+      if (wholeField && el) {
+        el.innerHTML = newHtml;
+      } else {
+        document.execCommand('insertHTML', false, newHtml);
+      }
+    });
+  };
+
+  // Alignment is a block property. execCommand('justifyX') styles the editable
+  // host element, which isn't captured in the stored innerHTML (so it wouldn't
+  // persist). Instead we wrap the whole field's content in an aligned block —
+  // this renders + persists reliably and re-applying just swaps the alignment.
+  const applyAlign = (align: 'left' | 'center' | 'right' | 'justify') => {
+    withSelection(() => {
+      const el = savedEditableRef.current || (document.activeElement as HTMLElement | null);
+      if (!el) return;
+      let inner = el.innerHTML;
+      // Unwrap any existing single alignment wrapper so we don't nest them.
+      const m = inner.match(/^<div style="text-align:[^"]*">([\s\S]*)<\/div>$/i);
+      if (m) inner = m[1];
+      el.innerHTML = `<div style="text-align: ${align}">${inner}</div>`;
+    });
   };
 
   // Apply an exact point size to the selection. execCommand('fontSize') only
@@ -960,7 +1104,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
               value={block.data || ''}
               placeholder="Write a brief, high-impact summary statement here..."
               tagName="p"
-              className={`text-slate-600 font-sans mt-1 ${currentBodySize}`}
+              className={`text-slate-600 mt-1 ${currentBodySize}`}
               style={{ lineHeight: lineHeightValue }}
             />
           </div>
@@ -1486,9 +1630,8 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
               onMouseDown={(e) => e.stopPropagation()}
               onChange={(e) => {
                 if (e.target.value) runFormat('fontName', e.target.value);
-                e.target.selectedIndex = 0;
               }}
-              defaultValue=""
+              value={selFont}
               title="Apply font family to the selected text"
               className="text-[9.5px] font-sans font-bold bg-slate-800 text-slate-200 rounded px-1.5 py-0.5 outline-hidden cursor-pointer hover:bg-slate-700 transition-all max-w-[92px]"
             >
@@ -1504,13 +1647,13 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
           {/* Font Size dropdown — applies an exact point size to the selected text */}
           <select
             onMouseDown={(e) => e.stopPropagation()}
-            onChange={(e) => { const v = parseInt(e.target.value, 10); if (v) applyFontSize(v); e.target.selectedIndex = 0; }}
-            defaultValue=""
+            onChange={(e) => { const v = parseInt(e.target.value, 10); if (v) applyFontSize(v); }}
+            value={selSize}
             title="Font size for the selected text"
             className="text-[9.5px] font-mono font-bold bg-slate-800 text-slate-200 rounded px-1.5 py-0.5 outline-hidden cursor-pointer hover:bg-slate-700 transition-all"
           >
             <option value="" disabled>Size</option>
-            {[8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72].map((s) => (
+            {FONT_SIZE_OPTIONS.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
@@ -1561,14 +1704,14 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
 
           {/* Lists (bulleted / numbered) */}
           <button
-            onClick={() => runFormat('insertUnorderedList')}
+            onClick={() => applyList('ul')}
             className="p-1 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition-all cursor-pointer"
             title="Bulleted List"
           >
             <List size={11} className="stroke-[2.5]" />
           </button>
           <button
-            onClick={() => runFormat('insertOrderedList')}
+            onClick={() => applyList('ol')}
             className="p-1 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition-all cursor-pointer"
             title="Numbered List"
           >
@@ -1579,28 +1722,28 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
 
           {/* Text alignment controls */}
           <button
-            onClick={() => runFormat('justifyLeft')}
+            onClick={() => applyAlign('left')}
             className="p-1 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition-all cursor-pointer"
             title="Align Left"
           >
             <AlignLeft size={11} className="stroke-[2.5]" />
           </button>
           <button
-            onClick={() => runFormat('justifyCenter')}
+            onClick={() => applyAlign('center')}
             className="p-1 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition-all cursor-pointer"
             title="Align Center"
           >
             <AlignCenter size={11} className="stroke-[2.5]" />
           </button>
           <button
-            onClick={() => runFormat('justifyRight')}
+            onClick={() => applyAlign('right')}
             className="p-1 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition-all cursor-pointer"
             title="Align Right"
           >
             <AlignRight size={11} className="stroke-[2.5]" />
           </button>
           <button
-            onClick={() => runFormat('justifyFull')}
+            onClick={() => applyAlign('justify')}
             className="p-1 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition-all cursor-pointer"
             title="Justify"
           >

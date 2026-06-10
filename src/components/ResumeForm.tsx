@@ -19,6 +19,25 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
   // Tracks which item currently has an active Delete/Cancel confirmation prompt.
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
+  // The preview supports inline rich-text editing, which stores HTML (e.g.
+  // <b>, <font style="font-size:..">). The form inputs are plain-text editors,
+  // so we strip that markup for display. Editing a field here saves plain text
+  // (replacing any rich formatting for that field) — formatting is done in the
+  // preview, content in the form.
+  const clean = (v: any): string =>
+    v == null
+      ? ''
+      : String(v)
+          .replace(/<br\s*\/?>(?=)/gi, '\n')
+          .replace(/<\/(p|div|li)>/gi, '\n')
+          .replace(/<[^>]*>/g, '')
+          .replace(/&nbsp;/gi, ' ')
+          .replace(/&amp;/gi, '&')
+          .replace(/&lt;/gi, '<')
+          .replace(/&gt;/gi, '>')
+          .replace(/\n{3,}/g, '\n\n')
+          .trimStart();
+
   const handleUpdateItem = (sectionId: string, itemId: string, data: any) => {
     store.updateSectionItem(sectionId, itemId, data);
     onUpdate();
@@ -177,7 +196,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                           <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">{label}</label>
                           <input
                             type={type}
-                            value={item[key] || ''}
+                            value={clean(item[key])}
                             placeholder={placeholder}
                             onChange={(e) => handleUpdateItem(sec.id, '', { [key]: e.target.value })}
                             className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200/60 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-indigo-500 focus:bg-white transition-all shadow-xxs font-medium"
@@ -208,7 +227,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Self Summary Statement</label>
                     <textarea
                       rows={5}
-                      value={sec.items[0] || ''}
+                      value={clean(sec.items[0])}
                       onChange={(e) => handleUpdateItem(sec.id, '', e.target.value)}
                       placeholder="E.g. Dynamic and results-driven Principal Software Engineer with 8+ years experience guiding cross-functional teams..."
                       className="w-full text-xs text-slate-800 px-3.5 py-3 bg-slate-50 border border-slate-200/60 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-indigo-500 focus:bg-white transition-all shadow-xxs leading-relaxed font-sans"
@@ -234,7 +253,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             <label className="text-xxxxs font-bold text-slate-500 uppercase">Company/Org</label>
                             <input
                               type="text"
-                              value={exp.company || ''}
+                              value={clean(exp.company)}
                               onChange={(e) => handleUpdateItem(sec.id, exp.id, { company: e.target.value })}
                               className="w-full text-xxs px-3 py-2 bg-white border border-slate-200/70 rounded-lg focus:outline-hidden"
                             />
@@ -243,7 +262,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             <label className="text-xxxxs font-bold text-slate-500 uppercase">Job Title</label>
                             <input
                               type="text"
-                              value={exp.position || ''}
+                              value={clean(exp.position)}
                               onChange={(e) => handleUpdateItem(sec.id, exp.id, { position: e.target.value })}
                               className="w-full text-xxs px-3 py-2 bg-white border border-slate-200/70 rounded-lg focus:outline-hidden"
                             />
@@ -256,7 +275,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             <label className="text-xxxxs font-bold text-slate-500 uppercase">Start Date (MM-YYYY)</label>
                             <input
                               type="text"
-                              value={exp.startDate || ''}
+                              value={clean(exp.startDate)}
                               placeholder="01-2020"
                               onChange={(e) => handleUpdateItem(sec.id, exp.id, { startDate: e.target.value })}
                               className="w-full text-xxs px-3 py-2 bg-white border border-slate-200/70 rounded-lg focus:outline-hidden"
@@ -267,7 +286,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             <input
                               type="text"
                               disabled={exp.current}
-                              value={exp.current ? '' : exp.endDate || ''}
+                              value={clean(exp.current ? '' : exp.endDate)}
                               placeholder="12-2023"
                               onChange={(e) => handleUpdateItem(sec.id, exp.id, { endDate: e.target.value })}
                               className="w-full text-xxs px-3 py-2 bg-white border border-slate-200/70 rounded-lg focus:outline-hidden disabled:bg-slate-100 disabled:text-slate-450"
@@ -289,7 +308,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                           <label className="text-xxxxs font-bold text-slate-500 uppercase">Office Location</label>
                           <input
                             type="text"
-                            value={exp.location || ''}
+                            value={clean(exp.location)}
                             placeholder="New York, NY"
                             onChange={(e) => handleUpdateItem(sec.id, exp.id, { location: e.target.value })}
                             className="w-full text-xxs px-3 py-2 bg-white border border-slate-200/70 rounded-lg focus:outline-hidden"
@@ -301,7 +320,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                           <label className="text-xxxxs font-bold text-slate-550 uppercase tracking-wide">Tasks and Metric Achievements (One bullet per line)</label>
                           <textarea
                             rows={3}
-                            value={exp.description || ''}
+                            value={clean(exp.description)}
                             placeholder="- Spearheaded design for VirtuCloud cloud dashboard reducing billing latency by 45%&#10;- Mentored 4 developer apprentices..."
                             onChange={(e) => handleUpdateItem(sec.id, exp.id, { description: e.target.value })}
                             className="w-full text-xxs px-3 py-2 bg-white border border-slate-200/70 rounded-lg focus:outline-hidden font-sans leading-relaxed"
@@ -335,7 +354,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             <label className="text-xxxxs font-bold text-slate-500 uppercase">Institution / School</label>
                             <input
                               type="text"
-                              value={edu.institution || ''}
+                              value={clean(edu.institution)}
                               onChange={(e) => handleUpdateItem(sec.id, edu.id, { institution: e.target.value })}
                               className="w-full text-xxs px-3 py-2 bg-white border border-slate-200/70 rounded-lg focus:outline-hidden"
                             />
@@ -344,7 +363,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             <label className="text-xxxxs font-bold text-slate-500 uppercase">Degree (e.g. MS, Bachelor)</label>
                             <input
                               type="text"
-                              value={edu.degree || ''}
+                              value={clean(edu.degree)}
                               onChange={(e) => handleUpdateItem(sec.id, edu.id, { degree: e.target.value })}
                               className="w-full text-xxs px-3 py-2 bg-white border border-slate-200/70 rounded-lg focus:outline-hidden"
                             />
@@ -356,7 +375,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             <label className="text-xxxxs font-bold text-slate-500 uppercase">Field of Study</label>
                             <input
                               type="text"
-                              value={edu.fieldOfStudy || ''}
+                              value={clean(edu.fieldOfStudy)}
                               onChange={(e) => handleUpdateItem(sec.id, edu.id, { fieldOfStudy: e.target.value })}
                               className="w-full text-xxs px-3 py-2 bg-white border border-slate-200/70 rounded-lg focus:outline-hidden"
                             />
@@ -366,7 +385,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                               <label className="text-xxxxs font-bold text-slate-500 uppercase">Start Date (MM-YYYY)</label>
                               <input
                                 type="text"
-                                value={edu.startDate || ''}
+                                value={clean(edu.startDate)}
                                 placeholder="09-2016"
                                 onChange={(e) => handleUpdateItem(sec.id, edu.id, { startDate: e.target.value })}
                                 className="w-full text-xxs px-3 py-2 bg-white border border-slate-200/70 rounded-lg focus:outline-hidden"
@@ -377,7 +396,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                               <input
                                 type="text"
                                 placeholder="06-2020"
-                                value={edu.endDate || ''}
+                                value={clean(edu.endDate)}
                                 onChange={(e) => handleUpdateItem(sec.id, edu.id, { endDate: e.target.value })}
                                 className="w-full text-xxs px-3 py-2 bg-white border border-slate-200/70 rounded-lg focus:outline-hidden"
                               />
@@ -390,7 +409,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             <label className="text-xxxxs font-bold text-slate-500 uppercase">Grade / GPA (Optional)</label>
                             <input
                               type="text"
-                              value={edu.grade || ''}
+                              value={clean(edu.grade)}
                               placeholder="3.92 GPA"
                               onChange={(e) => handleUpdateItem(sec.id, edu.id, { grade: e.target.value })}
                               className="w-full text-xxs px-3 py-2 bg-white border border-slate-200/70 rounded-lg focus:outline-hidden"
@@ -400,7 +419,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             <label className="text-xxxxs font-bold text-slate-550 uppercase tracking-wide">Description / Highlights</label>
                             <textarea
                               rows={4}
-                              value={edu.description || ''}
+                              value={clean(edu.description)}
                               placeholder="E.g. Specialization in Distributed Systems, Graphics, and Advanced Web Security standards. Completed thesis projects..."
                               onChange={(e) => handleUpdateItem(sec.id, edu.id, { description: e.target.value })}
                               className="w-full text-xxs px-3 py-2 bg-white border border-slate-200/70 rounded-lg focus:outline-hidden font-sans leading-relaxed"
@@ -431,12 +450,12 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             <input
                               type="text"
                               placeholder="Skill spec (e.g. React)"
-                              value={sk.name || ''}
+                              value={clean(sk.name)}
                               onChange={(e) => handleUpdateItem(sec.id, sk.id, { name: e.target.value })}
                               className="flex-1 min-w-0 text-xs bg-white border border-slate-200 rounded-lg px-3 py-1.5 outline-hidden font-medium text-slate-800 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition-all select-all"
                             />
                             <select
-                              value={sk.level || ''}
+                              value={clean(sk.level)}
                               onChange={(e) => handleUpdateItem(sec.id, sk.id, { level: e.target.value })}
                               className="w-24 sm:w-28 shrink-0 min-w-0 text-xs bg-white border border-slate-200 rounded-lg py-1.5 px-2 outline-hidden font-medium text-slate-700 cursor-pointer focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition-all"
                             >
@@ -474,7 +493,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             <label className="text-xxxxs font-bold text-slate-500 uppercase">Project Title</label>
                             <input
                               type="text"
-                              value={proj.name || ''}
+                              value={clean(proj.name)}
                               onChange={(e) => handleUpdateItem(sec.id, proj.id, { name: e.target.value })}
                               className="w-full text-xxs px-3 py-2 bg-white border rounded-lg focus:outline-hidden"
                             />
@@ -483,7 +502,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             <label className="text-xxxxs font-bold text-slate-500 uppercase">Applicant Role</label>
                             <input
                               type="text"
-                              value={proj.role || ''}
+                              value={clean(proj.role)}
                               placeholder="Lead architect"
                               onChange={(e) => handleUpdateItem(sec.id, proj.id, { role: e.target.value })}
                               className="w-full text-xxs px-3 py-2 bg-white border rounded-lg focus:outline-hidden"
@@ -495,7 +514,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                           <label className="text-xxxxs font-bold text-slate-500 uppercase">Github Link / URL</label>
                           <input
                             type="text"
-                            value={proj.url || ''}
+                            value={clean(proj.url)}
                             onChange={(e) => handleUpdateItem(sec.id, proj.id, { url: e.target.value })}
                             className="w-full text-xxs px-3 py-2 bg-white border rounded-lg focus:outline-hidden"
                           />
@@ -506,7 +525,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             <label className="text-xxxxs font-bold text-slate-500 uppercase">Start Date (MM-YYYY)</label>
                             <input
                               type="text"
-                              value={proj.startDate || ''}
+                              value={clean(proj.startDate)}
                               placeholder="01-2022"
                               onChange={(e) => handleUpdateItem(sec.id, proj.id, { startDate: e.target.value })}
                               className="w-full text-xxs px-3 py-2 bg-white border border-slate-200/70 rounded-lg focus:outline-hidden"
@@ -517,7 +536,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             <input
                               type="text"
                               disabled={proj.current}
-                              value={proj.current ? '' : proj.endDate || ''}
+                              value={clean(proj.current ? '' : proj.endDate)}
                               placeholder="06-2023"
                               onChange={(e) => handleUpdateItem(sec.id, proj.id, { endDate: e.target.value })}
                               className="w-full text-xxs px-3 py-2 bg-white border border-slate-200/70 rounded-lg focus:outline-hidden disabled:bg-slate-100 disabled:text-slate-450"
@@ -539,7 +558,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                           <label className="text-xxxxs font-bold text-slate-500 uppercase">Brief descriptions (Bullets split per line)</label>
                           <textarea
                             rows={3}
-                            value={proj.description || ''}
+                            value={clean(proj.description)}
                             onChange={(e) => handleUpdateItem(sec.id, proj.id, { description: e.target.value })}
                             className="w-full text-xxs px-3 py-2 bg-white border rounded-lg focus:outline-hidden"
                           />
@@ -572,21 +591,21 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             <input
                               type="text"
                               placeholder="Name (e.g. AWS Solutions Architect)"
-                              value={item.name || ''}
+                              value={clean(item.name)}
                               onChange={(e) => handleUpdateItem(sec.id, item.id, { name: e.target.value })}
                               className="text-xxs px-3 py-2 border rounded-md bg-white w-full"
                             />
                             <input
                               type="text"
                               placeholder="Issuer Authority"
-                              value={item.issuer || ''}
+                              value={clean(item.issuer)}
                               onChange={(e) => handleUpdateItem(sec.id, item.id, { issuer: e.target.value })}
                               className="text-xxs px-3 py-2 border rounded-md bg-white w-full"
                             />
                             <input
                               type="text"
                               placeholder="Date (MM-YYYY)"
-                              value={item.date || ''}
+                              value={clean(item.date)}
                               onChange={(e) => handleUpdateItem(sec.id, item.id, { date: e.target.value })}
                               className="text-xxs px-3 py-2 border rounded-md bg-white w-full"
                             />
@@ -599,21 +618,21 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                               <input
                                 type="text"
                                 placeholder="Win Title (e.g. Hackathon Winner)"
-                                value={item.title || ''}
+                                value={clean(item.title)}
                                 onChange={(e) => handleUpdateItem(sec.id, item.id, { title: e.target.value })}
                                 className="text-xxs px-3 py-2 border rounded-md bg-white w-full min-w-0"
                               />
                               <input
                                 type="text"
                                 placeholder="Issuer"
-                                value={item.issuer || ''}
+                                value={clean(item.issuer)}
                                 onChange={(e) => handleUpdateItem(sec.id, item.id, { issuer: e.target.value })}
                                 className="text-xxs px-3 py-2 border rounded-md bg-white w-full min-w-0"
                               />
                               <input
                                 type="text"
                                 placeholder="Date (MM-YYYY)"
-                                value={item.date || ''}
+                                value={clean(item.date)}
                                 onChange={(e) => handleUpdateItem(sec.id, item.id, { date: e.target.value })}
                                 className="text-xxs px-3 py-2 border rounded-md bg-white w-full min-w-0"
                               />
@@ -621,7 +640,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             <input
                               type="text"
                               placeholder="Award detail descriptions summary"
-                              value={item.description || ''}
+                              value={clean(item.description)}
                               onChange={(e) => handleUpdateItem(sec.id, item.id, { description: e.target.value })}
                               className="text-xxs px-3 py-2 border rounded-md bg-white w-full min-w-0"
                             />
@@ -633,14 +652,14 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             <input
                               type="text"
                               placeholder="Language (e.g. Spanish)"
-                              value={item.name || ''}
+                              value={clean(item.name)}
                               onChange={(e) => handleUpdateItem(sec.id, item.id, { name: e.target.value })}
                               className="text-xxs px-3 py-2 border rounded-md bg-white w-full min-w-0"
                             />
                             <input
                               type="text"
                               placeholder="Competency (e.g. Fluent)"
-                              value={item.proficiency || ''}
+                              value={clean(item.proficiency)}
                               onChange={(e) => handleUpdateItem(sec.id, item.id, { proficiency: e.target.value })}
                               className="text-xxs px-3 py-2 border rounded-md bg-white w-full min-w-0"
                             />
@@ -652,21 +671,21 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             <input
                               type="text"
                               placeholder="Name"
-                              value={item.name || ''}
+                              value={clean(item.name)}
                               onChange={(e) => handleUpdateItem(sec.id, item.id, { name: e.target.value })}
                               className="text-xxs px-3 py-2 border rounded-md bg-white w-full min-w-0"
                             />
                             <input
                               type="text"
                               placeholder="Relationship & Company"
-                              value={item.relationship || ''}
+                              value={clean(item.relationship)}
                               onChange={(e) => handleUpdateItem(sec.id, item.id, { relationship: e.target.value })}
                               className="text-xxs px-3 py-2 border rounded-md bg-white w-full min-w-0"
                             />
                             <input
                               type="text"
                               placeholder="Contact (Email, Phone, Slack)"
-                              value={item.contact || ''}
+                              value={clean(item.contact)}
                               onChange={(e) => handleUpdateItem(sec.id, item.id, { contact: e.target.value })}
                               className="text-xxs px-3 py-2 border rounded-md bg-white sm:col-span-2 w-full min-w-0"
                             />
@@ -679,14 +698,14 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                               <input
                                 type="text"
                                 placeholder="Organization Name"
-                                value={item.organization || ''}
+                                value={clean(item.organization)}
                                 onChange={(e) => handleUpdateItem(sec.id, item.id, { organization: e.target.value })}
                                 className="text-xxs px-3 py-2 border rounded-md bg-white w-full min-w-0"
                               />
                               <input
                                 type="text"
                                 placeholder="Volunteer Role"
-                                value={item.role || ''}
+                                value={clean(item.role)}
                                 onChange={(e) => handleUpdateItem(sec.id, item.id, { role: e.target.value })}
                                 className="text-xxs px-3 py-2 border rounded-md bg-white w-full min-w-0"
                               />
@@ -696,7 +715,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                                 <label className="text-xxxxs font-bold text-slate-400 uppercase">Start Date (MM-YYYY)</label>
                                 <input
                                   type="text"
-                                  value={item.startDate || ''}
+                                  value={clean(item.startDate)}
                                   placeholder="01-2020"
                                   onChange={(e) => handleUpdateItem(sec.id, item.id, { startDate: e.target.value })}
                                   className="text-xxs px-3 py-2 border rounded-md bg-white w-full"
@@ -707,7 +726,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                                 <input
                                   type="text"
                                   disabled={item.current}
-                                  value={item.current ? '' : item.endDate || ''}
+                                  value={clean(item.current ? '' : item.endDate)}
                                   placeholder="12-2021"
                                   onChange={(e) => handleUpdateItem(sec.id, item.id, { endDate: e.target.value })}
                                   className="text-xxs px-3 py-2 border rounded-md bg-white w-full disabled:bg-slate-100 disabled:text-slate-450"
@@ -726,7 +745,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             </div>
                             <textarea
                               placeholder="Details of volunteer contributions"
-                              value={item.description || ''}
+                              value={clean(item.description)}
                               onChange={(e) => handleUpdateItem(sec.id, item.id, { description: e.target.value })}
                               className="text-xxs px-3 py-2 border rounded-md bg-white w-full min-w-0"
                             />
@@ -739,21 +758,21 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                               <input
                                 type="text"
                                 placeholder="Paper Title"
-                                value={item.title || ''}
+                                value={clean(item.title)}
                                 onChange={(e) => handleUpdateItem(sec.id, item.id, { title: e.target.value })}
                                 className="text-xxs px-3 py-2 border rounded-md bg-white w-full min-w-0"
                               />
                               <input
                                 type="text"
                                 placeholder="Publisher"
-                                value={item.publisher || ''}
+                                value={clean(item.publisher)}
                                 onChange={(e) => handleUpdateItem(sec.id, item.id, { publisher: e.target.value })}
                                 className="text-xxs px-3 py-2 border rounded-md bg-white w-full min-w-0"
                               />
                               <input
                                 type="text"
                                 placeholder="Date (MM-YYYY)"
-                                value={item.date || ''}
+                                value={clean(item.date)}
                                 onChange={(e) => handleUpdateItem(sec.id, item.id, { date: e.target.value })}
                                 className="text-xxs px-3 py-2 border rounded-md bg-white w-full min-w-0"
                               />
@@ -761,7 +780,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             <input
                               type="text"
                               placeholder="URL Link / Academic reference"
-                              value={item.url || ''}
+                              value={clean(item.url)}
                               onChange={(e) => handleUpdateItem(sec.id, item.id, { url: e.target.value })}
                               className="text-xxs px-3 py-2 border rounded-md bg-white w-full min-w-0"
                             />
@@ -774,14 +793,14 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                               <input
                                 type="text"
                                 placeholder="Title (e.g. Masterclass)"
-                                value={item.title || ''}
+                                value={clean(item.title)}
                                 onChange={(e) => handleUpdateItem(sec.id, item.id, { title: e.target.value })}
                                 className="text-xxs px-3 py-2 border rounded-md bg-white w-full min-w-0"
                               />
                               <input
                                 type="text"
                                 placeholder="Subtitle / Sponsor"
-                                value={item.subtitle || ''}
+                                value={clean(item.subtitle)}
                                 onChange={(e) => handleUpdateItem(sec.id, item.id, { subtitle: e.target.value })}
                                 className="text-xxs px-3 py-2 border rounded-md bg-white w-full min-w-0"
                               />
@@ -789,13 +808,13 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             <input
                               type="text"
                               placeholder="Timeline / Dates"
-                              value={item.date || ''}
+                              value={clean(item.date)}
                               onChange={(e) => handleUpdateItem(sec.id, item.id, { date: e.target.value })}
                               className="text-xxs px-3 py-2 border rounded-md bg-white w-full min-w-0"
                             />
                             <textarea
                               placeholder="Specific bullet description outline"
-                              value={item.description || ''}
+                              value={clean(item.description)}
                               onChange={(e) => handleUpdateItem(sec.id, item.id, { description: e.target.value })}
                               className="text-xxs px-3 py-2 border rounded-md bg-white w-full min-w-0"
                             />
