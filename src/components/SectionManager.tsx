@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { Resume, ResumeSection, SectionType, SectionLayout } from '../types';
 import { store } from '../store';
-import { Eye, EyeOff, ChevronUp, ChevronDown, Trash2, Plus, Edit2, Check, X, GripVertical, Sliders, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
+import { Eye, EyeOff, ChevronUp, ChevronDown, Trash2, Plus, Edit2, Check, X, GripVertical, Sliders, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
 
 interface SectionManagerProps {
   resume: Resume;
@@ -379,6 +379,7 @@ export default function SectionManager({ resume, onUpdate }: SectionManagerProps
                           { v: 'left', Icon: AlignLeft },
                           { v: 'center', Icon: AlignCenter },
                           { v: 'right', Icon: AlignRight },
+                          { v: 'justify', Icon: AlignJustify },
                         ] as const).map(({ v, Icon }) => {
                           const current = sec.layout?.align || 'left';
                           return (

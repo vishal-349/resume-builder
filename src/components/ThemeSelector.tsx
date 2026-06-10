@@ -146,6 +146,34 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
             );
           })}
         </div>
+
+        {/* Multi-page footer content */}
+        <div className="mt-4 pt-4 border-t border-slate-100">
+          <label className="text-xs font-medium text-slate-500 flex justify-between mb-2">
+            <span>Page Footer (multi-page)</span>
+            <span className="font-mono text-indigo-600 font-bold uppercase text-xxxxs">
+              {(styles.footerStyle || 'name') === 'name-title' ? 'Name + Title' : 'Name'}
+            </span>
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              { v: 'name', label: 'Name Only' },
+              { v: 'name-title', label: 'Name + Title' },
+            ] as const).map((opt) => (
+              <button
+                key={opt.v}
+                onClick={() => handleStyleChange('footerStyle', opt.v)}
+                className={`py-1.5 rounded text-xxs font-medium border ${
+                  (styles.footerStyle || 'name') === opt.v
+                    ? 'border-indigo-600 bg-indigo-50/10 text-indigo-700 font-semibold'
+                    : 'border-slate-100 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* 3. Layout, Alignment & Sizing Density */}
@@ -155,28 +183,8 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
           Sizing & Page Density
         </h4>
 
-        {/* Global Font size */}
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-500 flex justify-between">
-            <span>Body Font Size</span>
-            <span className="font-mono text-indigo-600 font-bold uppercase text-xxxxs">{styles.fontSize}</span>
-          </label>
-          <div className="grid grid-cols-3 gap-1">
-            {(['sm', 'md', 'lg'] as const).map((sz) => (
-              <button
-                key={sz}
-                onClick={() => handleStyleChange('fontSize', sz)}
-                className={`py-1.5 rounded text-xxs font-medium border capitalize ${
-                  styles.fontSize === sz
-                    ? 'border-indigo-600 bg-indigo-50/10 text-indigo-700 font-semibold'
-                    : 'border-slate-100 text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                {sz}
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* Font size is intentionally NOT a global control — it is applied per
+            selection from the preview's floating toolbar (select text → Size). */}
 
         {/* Line spacing (applies to summary & description prose) */}
         <div className="space-y-1">

@@ -6,7 +6,7 @@
 import React, { useState, useRef, useLayoutEffect, useEffect, forwardRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Resume, ResumeSection } from '../types';
-import { Mail, Phone, MapPin, Link as LinkIcon, Linkedin, Github, ZoomIn, ZoomOut, Maximize2, Bold, Italic, Underline, Type, Sparkles, Paintbrush, X, List, ListOrdered, AlignLeft, AlignCenter, AlignRight, IndentIncrease, IndentDecrease } from 'lucide-react';
+import { Mail, Phone, MapPin, Link as LinkIcon, Linkedin, Github, ZoomIn, ZoomOut, Maximize2, Bold, Italic, Underline, Type, Sparkles, Paintbrush, X, List, ListOrdered, AlignLeft, AlignCenter, AlignRight, AlignJustify, IndentIncrease, IndentDecrease } from 'lucide-react';
 import { store } from '../store';
 import { resolveFontStack, FONT_OPTIONS } from '../fonts';
 
@@ -322,10 +322,10 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
     };
   }, []);
 
-  const runFormat = (command: string, value: string = '') => {
-    // If focus moved to a toolbar control (e.g. the font dropdown) the live
-    // selection may be gone — restore the remembered range first so the command
-    // targets the text the user actually selected.
+  // Runs a formatting action with the user's text selection preserved: if focus
+  // moved to a toolbar control (e.g. the font/size dropdown) the remembered range
+  // is restored first, and the resulting selection is re-captured afterwards.
+  const withSelection = (fn: () => void) => {
     const el = savedEditableRef.current;
     const range = savedRangeRef.current;
     const sel = typeof window !== 'undefined' ? window.getSelection() : null;
@@ -336,15 +336,71 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
       try { sel?.addRange(range); } catch { /* range may be stale */ }
     }
 
-    document.execCommand(command, false, value);
+    fn();
 
-    // Re-capture the (possibly shifted) selection so chained formatting and the
-    // floating toolbar keep working on the same text.
     const sel2 = typeof window !== 'undefined' ? window.getSelection() : null;
     if (sel2 && sel2.rangeCount > 0) {
       savedRangeRef.current = sel2.getRangeAt(0).cloneRange();
     }
     triggerActiveElementChange();
+  };
+
+  const runFormat = (command: string, value: string = '') => {
+    withSelection(() => document.execCommand(command, false, value));
+  };
+
+  // Apply an exact point size to the selection. execCommand('fontSize') only
+  // accepts 1–7, so we tag the selection with size 7 and then rewrite those
+  // wrappers to the requested px size — the standard rich-text-editor technique.
+  const applyFontSize = (px: number) => {
+    withSelection(() => {
+      document.execCommand('fontSize', false, '7');
+      const root = savedEditableRef.current || (document.activeElement as HTMLElement | null);
+      root?.querySelectorAll('font[size="7"]').forEach((f) => {
+        const fontEl = f as HTMLElement;
+        fontEl.removeAttribute('size');
+        fontEl.style.fontSize = `${px}px`;
+      });
+    });
+  };
+
+  const transformCase = (text: string, mode: 'upper' | 'lower' | 'title' | 'sentence'): string => {
+    switch (mode) {
+      case 'upper': return text.toUpperCase();
+      case 'lower': return text.toLowerCase();
+      case 'title': return text.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+      case 'sentence': {
+        const lower = text.toLowerCase();
+        return lower.replace(/(^\s*\w)|([.!?]\s+\w)/g, (m) => m.toUpperCase());
+      }
+      default: return text;
+    }
+  };
+
+  // Convert the case of the selected text. Case transforms preserve length, so we
+  // re-select the same span afterwards to keep the selection stable.
+  const applyCase = (mode: 'upper' | 'lower' | 'title' | 'sentence') => {
+    const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+    const text = (sel && sel.toString()) || savedRangeRef.current?.toString() || '';
+    if (!text.trim()) return;
+    const out = transformCase(text, mode);
+    withSelection(() => {
+      document.execCommand('insertText', false, out);
+      const cur = window.getSelection();
+      if (cur && cur.rangeCount > 0) {
+        const r = cur.getRangeAt(0);
+        const node = r.startContainer;
+        const end = r.startOffset;
+        const start = Math.max(0, end - out.length);
+        try {
+          const nr = document.createRange();
+          nr.setStart(node, start);
+          nr.setEnd(node, end);
+          cur.removeAllRanges();
+          cur.addRange(nr);
+        } catch { /* multi-node selection — leave caret as-is */ }
+      }
+    });
   };
 
   const styles = resume.styles;
@@ -357,6 +413,14 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
 
   const personalSec = resume.sections.find(s => s.type === 'personal');
   const contact = personalSec?.items[0] || {};
+
+  // Footer label — name only, or name + professional title (persisted choice).
+  const stripTags = (s: string) => (s || '').replace(/<[^>]*>/g, '').trim();
+  const footerName = stripTags(contact.fullName) || resume.title || 'Draft Resume';
+  const footerTitle = stripTags(contact.jobTitle);
+  const footerLabel = styles.footerStyle === 'name-title' && footerTitle
+    ? `${footerName} — ${footerTitle}`
+    : footerName;
 
   // Derive font family — resolves both legacy tokens (sans/serif/mono) and any
   // real font name chosen from the Typography dropdown into a full CSS stack.
@@ -628,7 +692,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
   };
 
   // Per-section content alignment (falls back to left)
-  const sectionAlign = (sec: ResumeSection): 'left' | 'center' | 'right' => sec.layout?.align || 'left';
+  const sectionAlign = (sec: ResumeSection): 'left' | 'center' | 'right' | 'justify' => sec.layout?.align || 'left';
 
   const renderSectionHeader = (sec: ResumeSection) => {
     // A per-section alignment override wins; otherwise use the global heading alignment.
@@ -1343,7 +1407,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
               {/* Classic layout pagination footer tag */}
               {renderPagesList.length > 1 && (
                 <div className="w-full flex justify-between items-center text-[8.5px] text-slate-400 border-t border-slate-100/40 pt-1 mt-4 select-none uppercase font-mono tracking-wider">
-                  <span className="font-semibold">{contact.fullName?.replace(/<[^>]*>/g, '').trim() || resume.title || 'Draft Resume'}</span>
+                  <span className="font-semibold">{footerLabel}</span>
                   <span className="font-bold">Page {pageIdx + 1} of {renderPagesList.length}</span>
                 </div>
               )}
@@ -1390,7 +1454,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
               {/* Classic layout pagination footer tag */}
               {renderPagesList.length > 1 && (
                 <div className="w-full flex justify-between items-center text-[8.5px] text-slate-400 border-t border-slate-100/40 pt-1 mt-4 select-none uppercase font-mono tracking-wider">
-                  <span className="font-semibold">{contact.fullName?.replace(/<[^>]*>/g, '').trim() || resume.title || 'Draft Resume'}</span>
+                  <span className="font-semibold">{footerLabel}</span>
                   <span className="font-bold">Page {pageIdx + 1} of {renderPagesList.length}</span>
                 </div>
               )}
@@ -1437,30 +1501,36 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
 
           <div className="h-4.5 w-[1px] bg-slate-800 shrink-0" />
 
-          {/* Font Size Selector from 1 to 7 */}
-          <div className="flex items-center gap-0.5 shrink-0">
-            <button
-              onClick={() => runFormat('fontSize', '1')}
-              className="text-[9.5px] font-mono leading-none hover:bg-slate-800 px-1 py-0.5 rounded text-slate-400 hover:text-white transition-all cursor-pointer"
-              title="Font Size Small"
-            >
-              sm
-            </button>
-            <button
-              onClick={() => runFormat('fontSize', '3')}
-              className="text-[9.5px] font-mono leading-none hover:bg-slate-800 px-1 py-0.5 rounded text-slate-400 hover:text-white transition-all cursor-pointer"
-              title="Font Size Medium"
-            >
-              md
-            </button>
-            <button
-              onClick={() => runFormat('fontSize', '5')}
-              className="text-[9.5px] font-mono leading-none hover:bg-slate-800 px-1 py-0.5 rounded text-slate-405 hover:text-white transition-all cursor-pointer"
-              title="Font Size Large"
-            >
-              lg
-            </button>
-          </div>
+          {/* Font Size dropdown — applies an exact point size to the selected text */}
+          <select
+            onMouseDown={(e) => e.stopPropagation()}
+            onChange={(e) => { const v = parseInt(e.target.value, 10); if (v) applyFontSize(v); e.target.selectedIndex = 0; }}
+            defaultValue=""
+            title="Font size for the selected text"
+            className="text-[9.5px] font-mono font-bold bg-slate-800 text-slate-200 rounded px-1.5 py-0.5 outline-hidden cursor-pointer hover:bg-slate-700 transition-all"
+          >
+            <option value="" disabled>Size</option>
+            {[8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72].map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+
+          <div className="h-4.5 w-[1px] bg-slate-800 shrink-0" />
+
+          {/* Text case transforms */}
+          <select
+            onMouseDown={(e) => e.stopPropagation()}
+            onChange={(e) => { if (e.target.value) applyCase(e.target.value as 'upper' | 'lower' | 'title' | 'sentence'); e.target.selectedIndex = 0; }}
+            defaultValue=""
+            title="Change the letter case of the selected text"
+            className="text-[9.5px] font-sans font-bold bg-slate-800 text-slate-200 rounded px-1.5 py-0.5 outline-hidden cursor-pointer hover:bg-slate-700 transition-all"
+          >
+            <option value="" disabled>Aa</option>
+            <option value="upper">UPPERCASE</option>
+            <option value="lower">lowercase</option>
+            <option value="title">Capitalize Each Word</option>
+            <option value="sentence">Sentence case</option>
+          </select>
 
           <div className="h-4.5 w-[1px] bg-slate-800 shrink-0" />
 
@@ -1528,6 +1598,13 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
             title="Align Right"
           >
             <AlignRight size={11} className="stroke-[2.5]" />
+          </button>
+          <button
+            onClick={() => runFormat('justifyFull')}
+            className="p-1 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition-all cursor-pointer"
+            title="Justify"
+          >
+            <AlignJustify size={11} className="stroke-[2.5]" />
           </button>
 
           <div className="h-4.5 w-[1px] bg-slate-800 shrink-0" />

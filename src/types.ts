@@ -22,6 +22,8 @@ export interface ResumeStyles {
    * template. 'template' keeps the template's own header design.
    */
   headerLayout?: 'template' | 'right' | 'horizontal' | 'stacked';
+  /** What the multi-page footer shows. Defaults to name only. */
+  footerStyle?: 'name' | 'name-title';
 }
 
 /**
@@ -30,10 +32,10 @@ export interface ResumeStyles {
  * optional so existing resumes keep their current look.
  */
 export interface SectionLayout {
-  showTitle?: boolean;                          // default true
-  align?: 'left' | 'center' | 'right';          // content alignment, default left
-  columns?: 1 | 2 | 3;                          // grid columns for list-style sections
-  skillStyle?: 'chips' | 'list' | 'inline';     // skills section only, default 'chips'
+  showTitle?: boolean;                                 // default true
+  align?: 'left' | 'center' | 'right' | 'justify';     // content alignment, default left
+  columns?: 1 | 2 | 3;                                 // grid columns for list-style sections
+  skillStyle?: 'chips' | 'list' | 'inline';            // skills section only, default 'chips'
 }
 
 export interface PersonalInfo {

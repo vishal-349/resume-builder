@@ -310,37 +310,49 @@ export class ResumeStoreManager {
     return () => this.listeners.delete(listener);
   }
 
+  private persistTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Debounced localStorage write — keeps UI updates (and undo/redo) instant by
+  // not serializing the whole document synchronously on every change.
+  private persist() {
+    if (this.persistTimer) clearTimeout(this.persistTimer);
+    this.persistTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            resumes: this.state.resumes,
+            activeResumeId: this.state.activeResumeId,
+            customTemplates: this.state.customTemplates,
+          })
+        );
+      } catch (e) {
+        console.error('LocalStorage write failed:', e);
+      }
+    }, 250);
+  }
+
   private emit() {
     this.listeners.forEach((listener) => listener(this.state));
-    // Persist to local storage
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          resumes: this.state.resumes,
-          activeResumeId: this.state.activeResumeId,
-          customTemplates: this.state.customTemplates,
-        })
-      );
-    } catch (e) {
-      console.error('LocalStorage write failed:', e);
-    }
+    this.persist();
   }
 
   private pushToHistory() {
-    // Deep clone current resumes
-    const serialized = JSON.stringify(this.state.resumes);
-    this.state.past.push(JSON.parse(serialized));
+    // All resume mutations are immutable (map/spread create new objects), so a
+    // history snapshot can safely store the *reference* to the current array
+    // instead of a deep JSON clone. This makes undo/redo and edits O(1) and
+    // instant rather than re-serializing the entire document each time.
+    this.state.past.push(this.state.resumes);
     this.state.future = []; // Clear redo stack on change
-    if (this.state.past.length > 30) {
-      this.state.past.shift(); // Limit history to 30 steps
+    if (this.state.past.length > 50) {
+      this.state.past.shift(); // Cap history depth
     }
   }
 
   public undo() {
     if (this.state.past.length === 0) return;
     const previous = this.state.past.pop()!;
-    this.state.future.push(JSON.parse(JSON.stringify(this.state.resumes)));
+    this.state.future.push(this.state.resumes);
     this.state.resumes = previous;
     this.emit();
   }
@@ -348,7 +360,7 @@ export class ResumeStoreManager {
   public redo() {
     if (this.state.future.length === 0) return;
     const next = this.state.future.pop()!;
-    this.state.past.push(JSON.parse(JSON.stringify(this.state.resumes)));
+    this.state.past.push(this.state.resumes);
     this.state.resumes = next;
     this.emit();
   }

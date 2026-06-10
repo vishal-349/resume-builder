@@ -132,3 +132,20 @@
   pointer-events: none;
 }
 
+/*
+ * Restore list rendering inside editable fields. Tailwind's preflight resets
+ * `list-style` and padding on ul/ol globally, which made the toolbar's
+ * bullet/numbered list buttons produce invisible lists. Scoping the styles to
+ * .editable-field brings the markers back in the preview, print, and PDF without
+ * affecting the rest of the UI.
+ */
+.editable-field ul,
+.editable-field ol {
+  padding-left: 1.4em;
+  margin: 0.15em 0;
+  list-style-position: outside;
+}
+.editable-field ul { list-style-type: disc; }
+.editable-field ol { list-style-type: decimal; }
+.editable-field li { display: list-item; }
+
