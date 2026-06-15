@@ -113,7 +113,7 @@ const EditableText = React.memo(({
     spellCheck: true,
     onBlur: commit,
     onKeyDown: handleKeyDown,
-    className: `${className} editable-field select-text outline-hidden focus:ring-1 focus:ring-indigo-400 focus:bg-indigo-50/10 hover:bg-slate-100/10 transition-all rounded-sm px-0.5 inline-block min-w-[20px]`,
+    className: `${className} editable-field select-text outline-hidden focus:ring-1 focus:ring-violet-400 focus:bg-violet-50/20 hover:bg-slate-100/10 transition-all rounded-sm px-0.5 inline-block min-w-[20px]`,
     style,
     'data-editable-field': 'true',
     'data-section-id': sectionId,
@@ -1497,7 +1497,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
       {/* Visual Workspace Controls */}
       <div className="bg-white border border-slate-200/60 rounded-xl px-4 py-2.5 shadow-xs flex items-center justify-between w-full no-print">
         <span className="text-xxs font-bold text-slate-500 font-sans uppercase tracking-wider flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
+          <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse"></span>
           WYSIWYG Multi-page Preview ({renderPagesList.length} {renderPagesList.length === 1 ? 'Page' : 'Pages'})
         </span>
         <div className="flex items-center gap-2">
@@ -1518,7 +1518,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
             }}
             className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border transition-all cursor-pointer ${
               isAutoFit
-                ? 'bg-indigo-50 border-indigo-200 text-indigo-755 font-sans'
+                ? 'bg-violet-50 border-violet-200 text-violet-700 font-sans'
                 : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 font-sans'
             }`}
             title="Toggle automatic layout fit to container width"
@@ -1546,7 +1546,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
               setIsAutoFit(false);
               setZoom(1.00);
             }}
-            className="text-[10.5px] font-mono font-extrabold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50/20 px-2 py-0.5 rounded transition-all select-none cursor-pointer"
+            className="text-[10.5px] font-mono font-extrabold text-slate-500 hover:text-violet-600 hover:bg-violet-50/40 px-2 py-0.5 rounded transition-all select-none cursor-pointer"
             title="Quick reset to 100% size"
           >
             {Math.round(zoom * 100)}%
@@ -1576,7 +1576,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
             }}
             className={`p-1.5 rounded border transition-all cursor-pointer ${
               (isExpanded !== undefined ? isExpanded : fullWidth)
-                ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-black scale-105'
+                ? 'bg-violet-50 border-violet-200 text-violet-700 font-black scale-105'
                 : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
             }`}
             title="Toggle wide workspace layout"
@@ -1956,7 +1956,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
             onClick={togglePainter}
             className={`p-1 rounded transition-all cursor-pointer ${
               painterArmed
-                ? 'bg-indigo-500 text-white'
+                ? 'bg-violet-500 text-white'
                 : 'hover:bg-slate-800 text-slate-300 hover:text-white'
             }`}
             title={painterArmed ? 'Format Painter armed — select target text to apply' : 'Format Painter — copy formatting to other text'}
@@ -1967,7 +1967,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
           {/* Helper functions (remove formatting) */}
           <button
             onClick={() => runFormat('removeFormat')}
-            className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-rose-400 transition-all cursor-pointer"
+            className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-red-400 transition-all cursor-pointer"
             title="Clear All Text Formatting"
           >
             <Paintbrush size={11} />

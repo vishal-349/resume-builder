@@ -153,7 +153,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                   <h3 className="text-xs font-extrabold text-slate-800 leading-none flex items-center gap-1.5">
                     {sec.name}
                     {!isVisible && (
-                      <span className="text-[9px] bg-slate-100 text-slate-505 font-bold uppercase py-0.5 px-1.5 rounded-full font-mono">
+                      <span className="text-[9px] bg-blue-50 text-blue-500 font-bold uppercase py-0.5 px-1.5 rounded-full font-mono">
                         Invisible
                       </span>
                     )}
@@ -173,7 +173,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                     onUpdate();
                   }}
                   className={`p-2 rounded-lg hover:bg-slate-100 transition-all ${
-                    isVisible ? 'text-slate-400 hover:text-indigo-650' : 'text-slate-350 hover:text-slate-700'
+                    isVisible ? 'text-slate-400 hover:text-violet-600' : 'text-slate-350 hover:text-slate-700'
                   }`}
                   title={isVisible ? 'Hide from PDF outline' : 'Add into PDF outline'}
                 >
@@ -199,7 +199,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             value={clean(item[key])}
                             placeholder={placeholder}
                             onChange={(e) => handleUpdateItem(sec.id, '', { [key]: e.target.value })}
-                            className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200/60 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-indigo-500 focus:bg-white transition-all shadow-xxs font-medium"
+                            className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200/60 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-violet-300 focus:bg-white transition-all shadow-xxs font-medium"
                           />
                         </div>
                       );
@@ -230,7 +230,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                       value={clean(sec.items[0])}
                       onChange={(e) => handleUpdateItem(sec.id, '', e.target.value)}
                       placeholder="E.g. Dynamic and results-driven Principal Software Engineer with 8+ years experience guiding cross-functional teams..."
-                      className="w-full text-xs text-slate-800 px-3.5 py-3 bg-slate-50 border border-slate-200/60 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-indigo-500 focus:bg-white transition-all shadow-xxs leading-relaxed font-sans"
+                      className="w-full text-xs text-slate-800 px-3.5 py-3 bg-slate-50 border border-slate-200/60 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-violet-300 focus:bg-white transition-all shadow-xxs leading-relaxed font-sans"
                     />
                     <div className="flex justify-between text-xxxxs text-slate-400 font-mono select-none">
                       <span>Tip: Highlight metric wins & Action verbs first.</span>
@@ -299,7 +299,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             id={`exp-curr-${exp.id}`}
                             checked={exp.current || false}
                             onChange={(e) => handleUpdateItem(sec.id, exp.id, { current: e.target.checked })}
-                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-505 cursor-pointer w-3.5 h-3.5"
+                            className="rounded border-slate-300 text-violet-600 focus:ring-violet-300 cursor-pointer w-3.5 h-3.5"
                           />
                           <label htmlFor={`exp-curr-${exp.id}`} className="text-xxxxs font-bold text-slate-550 uppercase tracking-widest cursor-pointer select-none">Currently Ongoing</label>
                         </div>
@@ -332,7 +332,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                     <button
                       type="button"
                       onClick={() => handleAddField(sec.id, 'experience')}
-                      className="w-full flex items-center justify-center gap-1.5 py-3 border border-dashed border-indigo-200 rounded-xl bg-indigo-50/5 text-indigo-700 hover:bg-slate-50 hover:border-indigo-400 transition-all font-bold text-xxs shadow-xxxxs cursor-pointer"
+                      className="w-full flex items-center justify-center gap-1.5 py-3 border border-dashed border-violet-200 rounded-xl bg-violet-50/50 text-violet-700 hover:border-violet-400 hover:bg-violet-50 transition-all font-bold text-xxs shadow-xxxxs cursor-pointer"
                     >
                       <Plus size={13} />
                       Add Work Position Record
@@ -432,7 +432,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                     <button
                       type="button"
                       onClick={() => handleAddField(sec.id, 'education')}
-                      className="w-full flex items-center justify-center gap-1.5 py-3 border border-dashed border-indigo-200 rounded-xl bg-indigo-50/5 text-indigo-705 hover:bg-slate-50 hover:border-indigo-400 font-bold text-xxs cursor-pointer"
+                      className="w-full flex items-center justify-center gap-1.5 py-3 border border-dashed border-violet-200 rounded-xl bg-violet-50/50 text-violet-700 hover:border-violet-400 hover:bg-violet-50 font-bold text-xxs cursor-pointer"
                     >
                       <Plus size={13} />
                       Add Education Degree
@@ -452,12 +452,12 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                               placeholder="Skill spec (e.g. React)"
                               value={clean(sk.name)}
                               onChange={(e) => handleUpdateItem(sec.id, sk.id, { name: e.target.value })}
-                              className="flex-1 min-w-0 text-xs bg-white border border-slate-200 rounded-lg px-3 py-1.5 outline-hidden font-medium text-slate-800 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition-all select-all"
+                              className="flex-1 min-w-0 text-xs bg-white border border-slate-200 rounded-lg px-3 py-1.5 outline-hidden font-medium text-slate-800 focus:border-violet-400 focus:ring-1 focus:ring-violet-300 transition-all select-all"
                             />
                             <select
                               value={clean(sk.level)}
                               onChange={(e) => handleUpdateItem(sec.id, sk.id, { level: e.target.value })}
-                              className="w-24 sm:w-28 shrink-0 min-w-0 text-xs bg-white border border-slate-200 rounded-lg py-1.5 px-2 outline-hidden font-medium text-slate-700 cursor-pointer focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition-all"
+                              className="w-24 sm:w-28 shrink-0 min-w-0 text-xs bg-white border border-slate-200 rounded-lg py-1.5 px-2 outline-hidden font-medium text-slate-700 cursor-pointer focus:border-violet-400 focus:ring-1 focus:ring-violet-300 transition-all"
                             >
                               <option value="">No Level</option>
                               <option value="Beginner">Beginner</option>
@@ -474,7 +474,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                     <button
                       type="button"
                       onClick={() => handleAddField(sec.id, 'skills')}
-                      className="w-full flex items-center justify-center gap-1.5 py-2 hover:bg-slate-50/70 text-slate-655 hover:text-indigo-705 bg-white rounded-xl text-xxs font-bold border border-slate-200 cursor-pointer transition-all shadow-xxxxs"
+                      className="w-full flex items-center justify-center gap-1.5 py-2 hover:bg-slate-50/70 text-slate-655 hover:text-violet-600 bg-white rounded-xl text-xxs font-bold border border-slate-200 cursor-pointer transition-all shadow-xxxxs"
                     >
                       <Plus size={12} />
                       Add Skill Row
@@ -549,7 +549,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                             id={`proj-curr-${proj.id}`}
                             checked={proj.current || false}
                             onChange={(e) => handleUpdateItem(sec.id, proj.id, { current: e.target.checked })}
-                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-505 cursor-pointer w-3.5 h-3.5"
+                            className="rounded border-slate-300 text-violet-600 focus:ring-violet-300 cursor-pointer w-3.5 h-3.5"
                           />
                           <label htmlFor={`proj-curr-${proj.id}`} className="text-xxxxs font-bold text-slate-550 uppercase tracking-widest cursor-pointer select-none">Project Currently Ongoing</label>
                         </div>
@@ -569,7 +569,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                     <button
                       type="button"
                       onClick={() => handleAddField(sec.id, 'projects')}
-                      className="w-full flex items-center justify-center gap-1 py-3 border border-dashed border-indigo-200 bg-indigo-50/10 hover:bg-slate-50 text-indigo-700 text-xxs font-bold rounded-lg cursor-pointer"
+                      className="w-full flex items-center justify-center gap-1 py-3 border border-dashed border-violet-200 bg-violet-50/50 hover:bg-violet-50 text-violet-700 hover:border-violet-400 text-xxs font-bold rounded-lg cursor-pointer"
                     >
                       <Plus size={13} />
                       Add Project Card
@@ -739,7 +739,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                                 id={`volunteer-curr-${item.id}`}
                                 checked={item.current || false}
                                 onChange={(e) => handleUpdateItem(sec.id, item.id, { current: e.target.checked })}
-                                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-505 cursor-pointer w-3.5 h-3.5"
+                                className="rounded border-slate-300 text-violet-600 focus:ring-violet-300 cursor-pointer w-3.5 h-3.5"
                               />
                               <label htmlFor={`volunteer-curr-${item.id}`} className="text-xxxxs font-bold text-slate-550 uppercase tracking-widest cursor-pointer select-none">Currently Ongoing</label>
                             </div>

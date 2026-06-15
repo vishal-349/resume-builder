@@ -28,7 +28,7 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
       {/* 1. Palette Preset Configuration */}
       <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-xxs">
         <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-2 mb-4">
-          <Palette size={16} className="text-indigo-600" />
+          <Palette size={16} className="text-violet-600" />
           Color Palette
         </h4>
         <div className="grid grid-cols-3 gap-2">
@@ -45,7 +45,7 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
               }}
               style={{ borderLeftColor: preset.primary }}
               className={`flex items-center justify-between p-2.5 border-l-4 rounded bg-slate-50 border-slate-100 text-left hover:bg-slate-100 transition-all ${
-                styles.primaryColor === preset.primary ? 'ring-2 ring-indigo-500 bg-indigo-50/20' : ''
+                styles.primaryColor === preset.primary ? 'ring-2 ring-violet-400 bg-violet-50' : ''
               }`}
             >
               <div className="truncate">
@@ -83,14 +83,14 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
       {/* 2. Typography Customization */}
       <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-xxs">
         <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-2 mb-4">
-          <Type size={16} className="text-indigo-600" />
+          <Type size={16} className="text-violet-600" />
           Typography Font Family
         </h4>
         <div className="space-y-2">
           <select
             value={FONT_OPTIONS.some((f) => f.value === styles.fontFamily) ? styles.fontFamily : ''}
             onChange={(e) => handleStyleChange('fontFamily', e.target.value)}
-            className="w-full text-sm px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-indigo-500 cursor-pointer text-slate-800"
+            className="w-full text-sm px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-violet-300 cursor-pointer text-slate-800"
             style={{ fontFamily: resolveFontStack(styles.fontFamily) }}
           >
             {/* Show the active preset token (sans/serif/mono/...) if not a named font yet */}
@@ -118,7 +118,7 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
       {/* Contact / Header Layout — move contact details independent of template */}
       <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-xxs">
         <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-2 mb-1">
-          <LayoutGrid size={16} className="text-indigo-600" />
+          <LayoutGrid size={16} className="text-violet-600" />
           Contact / Header Layout
         </h4>
         <p className="text-xxxxs text-slate-400 mb-3">Reposition your contact details regardless of the chosen template.</p>
@@ -136,7 +136,7 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
                 onClick={() => handleStyleChange('headerLayout', opt.v)}
                 className={`p-2.5 rounded-lg border text-left transition-all ${
                   current === opt.v
-                    ? 'border-indigo-600 bg-indigo-50/10 shadow-xxs'
+                    ? 'border-violet-300 ring-2 ring-violet-100 bg-violet-50 shadow-xxs'
                     : 'border-slate-100 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-200'
                 }`}
               >
@@ -151,7 +151,7 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
         <div className="mt-4 pt-4 border-t border-slate-100">
           <label className="text-xs font-medium text-slate-500 flex justify-between mb-2">
             <span>Page Footer (multi-page)</span>
-            <span className="font-mono text-indigo-600 font-bold uppercase text-xxxxs">
+            <span className="font-mono text-violet-600 font-bold uppercase text-xxxxs">
               {(styles.footerStyle || 'name') === 'name-title' ? 'Name + Title' : 'Name'}
             </span>
           </label>
@@ -165,7 +165,7 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
                 onClick={() => handleStyleChange('footerStyle', opt.v)}
                 className={`py-1.5 rounded text-xxs font-medium border ${
                   (styles.footerStyle || 'name') === opt.v
-                    ? 'border-indigo-600 bg-indigo-50/10 text-indigo-700 font-semibold'
+                    ? 'border-violet-300 bg-violet-50 text-violet-700 font-semibold'
                     : 'border-slate-100 text-slate-600 hover:bg-slate-50'
                 }`}
               >
@@ -179,7 +179,7 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
       {/* 3. Layout, Alignment & Sizing Density */}
       <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-xxs space-y-4">
         <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-2 mb-2">
-          <Sliders size={16} className="text-indigo-600" />
+          <Sliders size={16} className="text-violet-600" />
           Sizing & Page Density
         </h4>
 
@@ -190,7 +190,7 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
         <div className="space-y-1">
           <label className="text-xs font-medium text-slate-500 flex justify-between">
             <span>Line Spacing</span>
-            <span className="font-mono text-indigo-600 font-bold uppercase text-xxxxs">{styles.lineSpacing || 'normal'}</span>
+            <span className="font-mono text-violet-600 font-bold uppercase text-xxxxs">{styles.lineSpacing || 'normal'}</span>
           </label>
           <div className="grid grid-cols-3 gap-1">
             {(['tight', 'normal', 'relaxed'] as const).map((ls) => (
@@ -199,7 +199,7 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
                 onClick={() => handleStyleChange('lineSpacing', ls)}
                 className={`py-1.5 rounded text-xxs font-medium border capitalize ${
                   (styles.lineSpacing || 'normal') === ls
-                    ? 'border-indigo-600 bg-indigo-50/10 text-indigo-700 font-semibold'
+                    ? 'border-violet-300 bg-violet-50 text-violet-700 font-semibold'
                     : 'border-slate-100 text-slate-600 hover:bg-slate-50'
                 }`}
               >
@@ -213,7 +213,7 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
         <div className="space-y-1">
           <label className="text-xs font-medium text-slate-500 flex justify-between">
             <span>Section/Margin Spacing</span>
-            <span className="font-mono text-indigo-600 font-bold uppercase text-xxxxs">{styles.spacing}</span>
+            <span className="font-mono text-violet-600 font-bold uppercase text-xxxxs">{styles.spacing}</span>
           </label>
           <div className="grid grid-cols-3 gap-1">
             {(['compact', 'normal', 'relaxed'] as const).map((sp) => (
@@ -222,7 +222,7 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
                 onClick={() => handleStyleChange('spacing', sp)}
                 className={`py-1.5 rounded text-xxs font-medium border capitalize ${
                   styles.spacing === sp
-                    ? 'border-indigo-600 bg-indigo-50/10 text-indigo-700 font-semibold'
+                    ? 'border-violet-300 bg-violet-50 text-violet-700 font-semibold'
                     : 'border-slate-100 text-slate-600 hover:bg-slate-50'
                 }`}
               >
@@ -236,7 +236,7 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
         <div className="space-y-1">
           <label className="text-xs font-medium text-slate-500 flex justify-between">
             <span>Header Division Track</span>
-            <span className="font-mono text-indigo-600 font-bold uppercase text-xxxxs">{styles.dividerStyle}</span>
+            <span className="font-mono text-violet-600 font-bold uppercase text-xxxxs">{styles.dividerStyle}</span>
           </label>
           <div className="grid grid-cols-5 gap-1">
             {(['none', 'solid', 'dashed', 'double', 'thick'] as const).map((divs) => (
@@ -245,7 +245,7 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
                 onClick={() => handleStyleChange('dividerStyle', divs)}
                 className={`py-1 rounded text-xxxxs font-medium border capitalize ${
                   styles.dividerStyle === divs
-                    ? 'border-indigo-600 bg-indigo-50/10 text-indigo-700 font-semibold'
+                    ? 'border-violet-300 bg-violet-50 text-violet-700 font-semibold'
                     : 'border-slate-100 text-slate-600 hover:bg-slate-50'
                 }`}
               >
@@ -259,7 +259,7 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
         <div className="space-y-1">
           <label className="text-xs font-medium text-slate-500 flex justify-between">
             <span>Section Title Alignment</span>
-            <span className="font-mono text-indigo-600 font-bold uppercase text-xxxxs">{styles.sectionHeadingAlignment}</span>
+            <span className="font-mono text-violet-600 font-bold uppercase text-xxxxs">{styles.sectionHeadingAlignment}</span>
           </label>
           <div className="grid grid-cols-3 gap-1">
             {(['left', 'center', 'right'] as const).map((align) => (
@@ -268,7 +268,7 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
                 onClick={() => handleStyleChange('sectionHeadingAlignment', align)}
                 className={`py-1.5 rounded text-xxs font-medium border capitalize ${
                   styles.sectionHeadingAlignment === align
-                    ? 'border-indigo-600 bg-indigo-50/10 text-indigo-700 font-semibold'
+                    ? 'border-violet-300 bg-violet-50 text-violet-700 font-semibold'
                     : 'border-slate-100 text-slate-600 hover:bg-slate-50'
                 }`}
               >
@@ -282,7 +282,7 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
         <div className="space-y-1">
           <label className="text-xs font-medium text-slate-500 flex justify-between">
             <span>UI Borders Rounding</span>
-            <span className="font-mono text-indigo-600 font-bold uppercase text-xxxxs">{styles.borderRadius}</span>
+            <span className="font-mono text-violet-600 font-bold uppercase text-xxxxs">{styles.borderRadius}</span>
           </label>
           <div className="grid grid-cols-5 gap-1">
             {(['none', 'sm', 'md', 'lg', 'full'] as const).map((br) => (
@@ -291,7 +291,7 @@ export default function ThemeSelector({ resume, onUpdate }: ThemeSelectorProps) 
                 onClick={() => handleStyleChange('borderRadius', br)}
                 className={`py-1 rounded text-xxxxs font-bold border uppercase ${
                   styles.borderRadius === br
-                    ? 'border-indigo-600 bg-indigo-50/10 text-indigo-700 font-bold'
+                    ? 'border-violet-300 bg-violet-50 text-violet-700 font-bold'
                     : 'border-slate-100 text-slate-600 hover:bg-slate-50'
                 }`}
               >

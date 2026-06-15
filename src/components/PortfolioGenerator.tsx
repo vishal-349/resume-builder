@@ -41,7 +41,7 @@ export default function PortfolioGenerator({ resume }: PortfolioGeneratorProps) 
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
           <div>
             <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-              <Globe size={16} className="text-indigo-600" />
+              <Globe size={16} className="text-violet-600" />
               Dynamic Portfolio Website Generator
             </h3>
             <p className="text-xxs text-slate-500 mt-1">
@@ -50,7 +50,7 @@ export default function PortfolioGenerator({ resume }: PortfolioGeneratorProps) 
           </div>
           <button
             onClick={() => setPreviewMode(!previewMode)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-100 text-indigo-700 hover:bg-indigo-100 transition-all rounded-lg text-xxs font-bold shrink-0 shadow-xxs"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-50 border border-violet-100 text-violet-700 hover:bg-violet-100 transition-all rounded-lg text-xxs font-bold shrink-0 shadow-xxs"
           >
             <Eye size={12} />
             {previewMode ? 'View Configuration' : 'Test Live Portfolio'}
@@ -75,8 +75,8 @@ export default function PortfolioGenerator({ resume }: PortfolioGeneratorProps) 
                     onClick={() => setLayout(tpl.id as any)}
                     className={`p-3 rounded-lg border text-left transition-all ${
                       layout === tpl.id
-                        ? 'border-indigo-600 bg-indigo-50/10 shadow-xxs'
-                        : 'border-slate-100 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-205'
+                        ? 'border-violet-300 bg-violet-50 ring-2 ring-violet-100 shadow-xxs'
+                        : 'border-slate-100 bg-slate-50/50 hover:bg-slate-50 hover:border-violet-200'
                     }`}
                   >
                     <p className="text-xxs font-bold text-slate-800 leading-none">{tpl.name}</p>
@@ -99,7 +99,7 @@ export default function PortfolioGenerator({ resume }: PortfolioGeneratorProps) 
                     onClick={() => setThemeColor(col)}
                     style={{ backgroundColor: col }}
                     className={`w-5 h-5 rounded-full border-2 transition-transform ${
-                      themeColor === col ? 'scale-110 border-white ring-2 ring-indigo-500' : 'border-transparent'
+                      themeColor === col ? 'scale-110 border-white ring-2 ring-violet-400' : 'border-transparent'
                     }`}
                   />
                 ))}
@@ -124,7 +124,7 @@ export default function PortfolioGenerator({ resume }: PortfolioGeneratorProps) 
                 />
                 <button
                   onClick={copyUrl}
-                  className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all"
+                  className="p-2 bg-sunset hover:opacity-90 glow-sunset text-white rounded-lg transition-all"
                   title="Copy link to clipboard"
                 >
                   {copied ? <Check size={14} /> : <Copy size={14} />}

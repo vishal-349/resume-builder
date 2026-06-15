@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;505;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Grotesk:wght@400;500;700&family=Outfit:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;505;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Grotesk:wght@400;500;700&family=Outfit:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -14,6 +14,191 @@
   --text-xxxxs: 0.625rem;
   --font-size-xxxxs: 0.625rem;
   --shadow-xxxxs: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+
+  /* Azure Pop design tokens (blue + violet) */
+  --font-display: 'Plus Jakarta Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --color-azure: #3b82f6;
+  --color-indigo-pop: #6366f1;
+  --color-grape: #8b5cf6;
+  --color-amber-pop: #f59e0b;
+}
+
+/* ============================================================
+   GLOBAL BASE — Azure Pop shell
+   ============================================================ */
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background-color: #f6f9ff;
+  color: #1f2433;
+}
+
+/* Cool blue→indigo→violet gradient backdrop attached to the app shell */
+.app-shell {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(900px 620px at 6% -10%, rgba(59, 130, 246, 0.20), transparent 60%),
+    radial-gradient(940px 640px at 100% -6%, rgba(139, 92, 246, 0.18), transparent 58%),
+    radial-gradient(820px 600px at 50% 112%, rgba(34, 211, 238, 0.14), transparent 62%),
+    linear-gradient(180deg, #f6f9ff 0%, #eef2fe 55%, #f3f1ff 100%);
+}
+
+/* Floating ambient blobs */
+.aurora-blob {
+  position: fixed;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: 0;
+  will-change: transform;
+}
+.aurora-blob-1 {
+  width: 520px; height: 520px;
+  top: -150px; left: -130px;
+  background: radial-gradient(circle at 30% 30%, rgba(59, 130, 246, 0.7), transparent 70%);
+  animation: aurora 24s ease-in-out infinite;
+}
+.aurora-blob-2 {
+  width: 480px; height: 480px;
+  top: 8%; right: -140px;
+  background: radial-gradient(circle at 70% 30%, rgba(139, 92, 246, 0.6), transparent 70%);
+  animation: aurora 28s ease-in-out infinite reverse;
+}
+.aurora-blob-3 {
+  width: 440px; height: 440px;
+  bottom: -170px; left: 38%;
+  background: radial-gradient(circle at 50% 50%, rgba(34, 211, 238, 0.5), transparent 70%);
+  animation: aurora 32s ease-in-out infinite;
+}
+
+@keyframes aurora {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  33%      { transform: translate3d(50px, 40px, 0) scale(1.12); }
+  66%      { transform: translate3d(-40px, 60px, 0) scale(0.95); }
+}
+
+/* Subtle grid over the shell */
+.app-grid {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(70, 90, 140, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(70, 90, 140, 0.04) 1px, transparent 1px);
+  background-size: 46px 46px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black, transparent 78%);
+}
+
+/* ============================================================
+   GLASS SURFACES (light)
+   ============================================================ */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 10px 30px -16px rgba(60, 80, 150, 0.3);
+}
+.glass-header {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.14);
+}
+.panel-glass {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+}
+
+/* Brand gradient — blue→indigo→violet — used for CTAs, logo, active nav */
+.bg-sunset {
+  background: linear-gradient(100deg, #3b82f6 0%, #6366f1 48%, #8b5cf6 105%);
+}
+.glow-sunset {
+  box-shadow: 0 8px 26px -8px rgba(59, 130, 246, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.35) inset;
+}
+.glow-soft {
+  box-shadow: 0 14px 40px -18px rgba(60, 80, 150, 0.4);
+}
+
+/* The white A4 sheet floating in the cool canvas */
+.sheet-glow {
+  box-shadow:
+    0 0 0 1px rgba(60, 80, 150, 0.07),
+    0 30px 80px -24px rgba(99, 102, 241, 0.38),
+    0 10px 30px -12px rgba(59, 130, 246, 0.28);
+}
+
+/* Gradient text for hero accents */
+.text-gradient {
+  background: linear-gradient(100deg, #3b82f6 0%, #6366f1 50%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ============================================================
+   SCROLLBARS — slim, cool
+   ============================================================ */
+.scroll-warm {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(59, 130, 246, 0.28) transparent;
+}
+.scroll-warm::-webkit-scrollbar { width: 9px; height: 9px; }
+.scroll-warm::-webkit-scrollbar-track { background: transparent; }
+.scroll-warm::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.24);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.scroll-warm::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.45);
+  background-clip: padding-box;
+}
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes floatUp {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-float-up {
+  animation: floatUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Gentle glowing pulse for the header upload CTA */
+@keyframes pulseSubtle {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.0); }
+  50% { box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.16); }
+}
+.animate-pulse-subtle {
+  animation: pulseSubtle 2.4s ease-in-out infinite;
+}
+
+/* Respect user motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .aurora-blob { animation: none !important; }
 }
 
 @layer base {
@@ -68,13 +253,13 @@
       height: 297mm !important;
       min-height: 297mm !important;
       max-height: 297mm !important;
-      
+
       /* Eliminate border layers or visual desktop shadows */
       border: none !important;
       box-shadow: none !important;
       border-radius: 0 !important;
       outline: none !important;
-      
+
       /* Enable flow constraints and prevent split overlapping in print engine */
       display: flex !important;
       flex-direction: column !important;
@@ -83,7 +268,7 @@
       break-after: page !important;
       page-break-inside: avoid !important;
       break-inside: avoid !important;
-      
+
       margin: 0 !important;
       box-sizing: border-box !important;
       -webkit-print-color-adjust: exact !important;
@@ -105,16 +290,6 @@
       gap: 0 !important;
     }
   }
-}
-
-/* Base custom visual helpers */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /*
@@ -148,4 +323,3 @@
 .editable-field ul { list-style-type: disc; }
 .editable-field ol { list-style-type: decimal; }
 .editable-field li { display: list-item; }
-

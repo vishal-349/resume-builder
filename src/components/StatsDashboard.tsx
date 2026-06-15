@@ -91,10 +91,10 @@ export default function StatsDashboard({ resumes, activeResume, onRefresh }: Sta
 
       {/* Main bento stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs flex flex-col justify-between">
+        <div className="bg-violet-50/40 p-4 rounded-xl border border-violet-100 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-xs font-medium uppercase tracking-wider">Created Resumes</span>
-            <FileText size={18} />
+            <FileText size={18} className="text-violet-500" />
           </div>
           <div className="mt-2">
             <h4 className="text-2xl font-bold text-slate-800">{totalCount}</h4>
@@ -102,21 +102,21 @@ export default function StatsDashboard({ resumes, activeResume, onRefresh }: Sta
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs flex flex-col justify-between">
+        <div className="bg-blue-50/40 p-4 rounded-xl border border-blue-100 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-xs font-medium uppercase tracking-wider">Average ATS</span>
-            <BarChart3 size={18} />
+            <BarChart3 size={18} className="text-blue-500" />
           </div>
           <div className="mt-2">
-            <h4 className={`text-2xl font-bold ${averageATS > 80 ? 'text-teal-600' : 'text-amber-500'}`}>{averageATS}%</h4>
+            <h4 className={`text-2xl font-bold ${averageATS > 80 ? 'text-emerald-600' : 'text-amber-500'}`}>{averageATS}%</h4>
             <p className="text-xxs text-slate-400 mt-1">Cross-resume standard score</p>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs flex flex-col justify-between">
+        <div className="bg-amber-50/40 p-4 rounded-xl border border-amber-100 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-xs font-medium uppercase tracking-wider">Active Credentials</span>
-            <Award size={18} />
+            <Award size={18} className="text-amber-500" />
           </div>
           <div className="mt-2">
             <h4 className="text-2xl font-bold text-slate-800">{skillCount + expCount}</h4>
@@ -124,10 +124,10 @@ export default function StatsDashboard({ resumes, activeResume, onRefresh }: Sta
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs flex flex-col justify-between">
+        <div className="bg-emerald-50/40 p-4 rounded-xl border border-emerald-100 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-xs font-medium uppercase tracking-wider">Active Projects</span>
-            <CloudLightning size={18} />
+            <CloudLightning size={18} className="text-emerald-500" />
           </div>
           <div className="mt-2">
             <h4 className="text-2xl font-bold text-slate-800">{projectCount}</h4>
@@ -149,14 +149,14 @@ export default function StatsDashboard({ resumes, activeResume, onRefresh }: Sta
           <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button
               onClick={exportAllJSON}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 transition-all text-white rounded-lg text-xs font-semibold shadow-xs"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-sunset hover:opacity-90 glow-sunset transition-all text-white rounded-lg text-xs font-semibold shadow-xs"
             >
               <DownloadCloud size={15} />
               Backup All JSON DB
             </button>
 
             <label className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 hover:border-slate-300 transition-all rounded-lg text-xs font-semibold cursor-pointer shadow-xs">
-              <UploadCloud size={15} className="text-indigo-600" />
+              <UploadCloud size={15} className="text-violet-600" />
               <span>Restore Backup</span>
               <input
                 type="file"
@@ -194,7 +194,7 @@ export default function StatsDashboard({ resumes, activeResume, onRefresh }: Sta
         </div>
 
         {/* Decorative ambient vector */}
-        <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-indigo-100/30 rounded-full blur-xl pointer-events-none" />
+        <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-violet-200/40 rounded-full blur-xl pointer-events-none" />
       </div>
     </div>
   );

@@ -21,6 +21,7 @@ import SectionManager from './components/SectionManager';
 import StatsDashboard from './components/StatsDashboard';
 import PortfolioGenerator from './components/PortfolioGenerator';
 import ResumeForm from './components/ResumeForm';
+import ShinyButton from './components/ShinyButton';
 
 import {
   FileText,
@@ -58,7 +59,7 @@ import {
 export default function App() {
   const [storeState, setStoreState] = useState(store.getState());
   const [activeTab, setActiveTab] = useState<'editor' | 'templates' | 'customize' | 'sections' | 'portfolio' | 'history' | 'dashboard'>('editor');
-  
+
   // Mobile Navigation states
   const [mobileTab, setMobileTab] = useState<'edit' | 'templates' | 'preview' | 'download'>('edit');
   const [rawPastedText, setRawPastedText] = useState('');
@@ -179,40 +180,52 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-[#F1F5F9] text-slate-900 flex flex-col font-sans select-none antialiased">
+    <div className="app-shell min-h-screen text-slate-800 flex flex-col font-display select-none antialiased">
+      {/* Animated ambient sunset backdrop */}
+      <div className="aurora-blob aurora-blob-1 no-print" aria-hidden />
+      <div className="aurora-blob aurora-blob-2 no-print" aria-hidden />
+      <div className="aurora-blob aurora-blob-3 no-print" aria-hidden />
+      <div className="app-grid no-print" aria-hidden />
+
       {/* Toast notifications */}
       {successToast && (
-        <div className="fixed top-4 right-4 z-50 bg-slate-900 text-white border border-slate-800 px-4 py-3 rounded-xl shadow-lg flex items-center space-x-2 text-xs font-semibold animate-fade-in no-print">
-          <Award size={14} className="text-emerald-400" />
+        <div className="fixed top-5 right-5 z-50 glass text-slate-800 px-4 py-3 rounded-2xl flex items-center space-x-2 text-xs font-semibold animate-float-up no-print">
+          <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-sunset text-white shrink-0">
+            <Sparkles size={12} />
+          </span>
           <span>{successToast}</span>
         </div>
       )}
 
       {/* Top Application Ribbon */}
-      <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-40 no-print shrink-0">
+      <header className="relative z-40 h-16 glass-header flex items-center justify-between px-6 sticky top-0 no-print shrink-0">
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-black text-lg shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 bg-sunset rounded-xl flex items-center justify-center text-white font-black text-lg glow-sunset">
               R
             </div>
             <div className="flex flex-col">
               <span className="font-extrabold text-base text-slate-900 tracking-tight leading-none flex items-center gap-1.5">
-                Resumify.io
-                <span className="text-[9px] bg-indigo-50 text-indigo-700 font-bold px-1.5 py-0.5 rounded-full font-mono uppercase border border-indigo-150">Local Cloud</span>
+                Resumify<span className="text-gradient">.io</span>
+                <span className="text-[9px] bg-blue-50 text-blue-600 font-bold px-1.5 py-0.5 rounded-full font-mono uppercase border border-blue-100">Local Cloud</span>
               </span>
               <span className="text-[10px] text-slate-400 mt-0.5 font-medium leading-none">SaaS Workspace Builder v1.0</span>
+              <span className="text-[9px] text-slate-400 mt-1 font-medium leading-none">
+                Developed by <span className="font-bold text-slate-600">Vishal Tyagi</span>
+                <a href="mailto:vishaltyagi349@gmail.com" className="hidden sm:inline text-blue-600 hover:underline"> · vishaltyagi349@gmail.com</a>
+              </span>
             </div>
           </div>
         </div>
 
         {/* Global Toolbar and Actions */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           {/* Quick Undo / Redo triggers */}
-          <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200/50">
+          <div className="flex items-center bg-white/60 rounded-lg p-0.5 border border-blue-100/70">
             <button
               disabled={storeState.past.length === 0}
               onClick={() => store.undo()}
-              className="p-1.5 text-slate-500 hover:bg-white rounded-md disabled:opacity-20 transition-all cursor-pointer"
+              className="p-1.5 text-slate-500 hover:bg-white hover:text-violet-600 rounded-md disabled:opacity-20 transition-all cursor-pointer"
               title="Undo Action"
             >
               <RotateCcw size={13} />
@@ -220,7 +233,7 @@ export default function App() {
             <button
               disabled={storeState.future.length === 0}
               onClick={() => store.redo()}
-              className="p-1.5 text-slate-500 hover:bg-white rounded-md disabled:opacity-20 transition-all cursor-pointer"
+              className="p-1.5 text-slate-500 hover:bg-white hover:text-violet-600 rounded-md disabled:opacity-20 transition-all cursor-pointer"
               title="Redo Action"
             >
               <RotateCw size={13} />
@@ -229,7 +242,7 @@ export default function App() {
 
           <button
             onClick={() => setShowImportDialog(true)}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 border border-indigo-750 text-white hover:bg-indigo-700 hover:border-indigo-800 rounded-lg text-xxs font-bold transition-all shadow-md cursor-pointer animate-pulse-subtle"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white border border-violet-200 text-violet-700 hover:bg-violet-50 hover:border-violet-300 rounded-lg text-xxs font-bold transition-all cursor-pointer animate-pulse-subtle"
           >
             <Upload size={11} />
             Upload Resume
@@ -239,17 +252,17 @@ export default function App() {
             onClick={loadDefaults}
             className={`hidden sm:block text-xxs font-bold cursor-pointer px-2 py-1 rounded transition-all ${
               resetConfirm
-                ? 'bg-red-650 text-white animate-pulse shadow-xs'
+                ? 'bg-red-500 text-white animate-pulse shadow-sm'
                 : 'text-slate-400 hover:text-slate-600'
             }`}
           >
             {resetConfirm ? 'Click again to confirm Reset!' : 'Reset Draft'}
           </button>
 
-          <div className="h-6 w-[1px] bg-slate-200 mx-1" />
+          <div className="hidden sm:block h-6 w-px bg-blue-100 mx-1" />
 
           {/* Autosaved Badge from design */}
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full border border-emerald-100 select-none shadow-xxs">
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full border border-emerald-100 select-none">
             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
             Autosaved
           </div>
@@ -257,15 +270,15 @@ export default function App() {
           {/* Compact ATS Score indicator — lives in the ribbon so it never overlaps the resume */}
           {atsResult && (
             <div
-              className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-200 select-none shadow-xxs"
+              className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-white/70 rounded-full border border-blue-100 select-none"
               title={`ATS Score: ${atsResult.score}% — ${atsResult.grade}`}
             >
               <div className="relative w-6 h-6 shrink-0">
                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="10" stroke="#e2e8f0" strokeWidth="3" fill="none" />
+                  <circle cx="12" cy="12" r="10" stroke="#f1e6ec" strokeWidth="3" fill="none" />
                   <circle
                     cx="12" cy="12" r="10"
-                    stroke={atsResult.score > 75 ? '#0d9488' : atsResult.score > 50 ? '#f59e0b' : '#ef4444'}
+                    stroke={atsResult.score > 75 ? '#059669' : atsResult.score > 50 ? '#f59e0b' : '#ef4444'}
                     strokeWidth="3" fill="none"
                     strokeDasharray="62.8"
                     strokeDashoffset={62.8 - (62.8 * atsResult.score) / 100}
@@ -279,30 +292,32 @@ export default function App() {
               <div className="flex flex-col leading-none">
                 <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">ATS</span>
                 <span className={`text-[10px] font-extrabold leading-tight ${
-                  atsResult.score > 75 ? 'text-teal-600' : atsResult.score > 50 ? 'text-amber-500' : 'text-red-500'
+                  atsResult.score > 75 ? 'text-emerald-600' : atsResult.score > 50 ? 'text-amber-500' : 'text-blue-500'
                 }`}>{atsResult.grade}</span>
               </div>
             </div>
           )}
 
-          <button
+          <ShinyButton
             onClick={handleExportPDFClick}
-            className="bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold text-sm shadow-sm hover:bg-indigo-700 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer animate-fade-in"
-          >
-            <Sparkles size={14} className="text-yellow-300" />
-            <span>Download / Export PDF</span>
-          </button>
+            label={(
+              <>
+                <span className="hidden sm:inline">Download / Export PDF</span>
+                <span className="sm:hidden">Export PDF</span>
+              </>
+            )}
+          />
         </div>
       </header>
 
       {/* Main Workspace Frame */}
-      <main className="flex-1 max-w-8xl mx-auto w-full flex flex-col md:flex-row min-h-0 relative">
-        
+      <main className="relative z-10 flex-1 max-w-8xl mx-auto w-full flex flex-col md:flex-row min-h-0">
+
         {/* DESKTOP WORKSPACE (Visible only on lg viewports) */}
-        <div className="hidden md:flex flex-1 w-full min-h-0 divide-x divide-slate-200">
-          
+        <div className="hidden md:flex flex-1 w-full min-h-0">
+
           {/* Left panel tabs sidebar selector */}
-          <div className="w-24 bg-white shrink-0 flex flex-col items-center justify-between py-6 gap-6 border-r border-slate-200 no-print shadow-xs z-10">
+          <div className="w-24 shrink-0 flex flex-col items-center justify-between py-6 gap-6 border-r border-blue-100/70 no-print panel-glass z-10">
             <div className="flex flex-col gap-3 w-full px-2">
               {[
                 { id: 'editor', icon: FileText, label: 'Form Builder' },
@@ -319,10 +334,10 @@ export default function App() {
                     key={tb.id}
                     onClick={() => setActiveTab(tb.id as any)}
                     title={tb.label}
-                    className={`px-1.5 py-2.5 rounded-xl flex flex-col items-center gap-1 group transition-all relative ${
+                    className={`px-1.5 py-2.5 rounded-xl flex flex-col items-center gap-1 group transition-all relative cursor-pointer ${
                       isSel
-                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100'
-                        : 'text-slate-400 hover:text-slate-800 hover:bg-slate-100/50'
+                        ? 'bg-sunset text-white glow-sunset'
+                        : 'text-slate-400 hover:text-violet-600 hover:bg-violet-50/70'
                     }`}
                   >
                     <tb.icon size={16} className="shrink-0" />
@@ -335,18 +350,18 @@ export default function App() {
             </div>
 
             {/* Shield disclaimer */}
-            <div className="p-2 text-center text-xxxxs opacity-40 font-mono flex flex-col items-center gap-1">
-              <Shield size={14} className="text-indigo-600" />
+            <div className="p-2 text-center text-xxxxs text-slate-400 font-mono flex flex-col items-center gap-1">
+              <Shield size={14} className="text-violet-500" />
               <span>SECURE DATA</span>
             </div>
           </div>
 
           {/* Tab Content Canvas (Middle Drawer, 33% screen width) */}
-          <div className="w-[430px] shrink-0 bg-white overflow-y-auto p-8 space-y-8 flex flex-col h-[calc(100vh-64px)] border-slate-200 border-r no-print shadow-xs z-10">
-            
+          <div className="scroll-warm w-[430px] shrink-0 panel-glass overflow-y-auto p-8 space-y-8 flex flex-col h-[calc(100vh-64px)] border-r border-blue-100/70 no-print z-10">
+
             {/* Dynamic headers per view */}
             <div>
-              <h2 className="text-xs uppercase font-extrabold text-slate-400 font-mono tracking-widest leading-none">
+              <h2 className="text-xs uppercase font-extrabold text-gradient font-mono tracking-widest leading-none">
                 {activeTab === 'editor' && 'Edit Records'}
                 {activeTab === 'templates' && 'Template Registry'}
                 {activeTab === 'customize' && 'Style Calibration'}
@@ -355,7 +370,7 @@ export default function App() {
                 {activeTab === 'history' && 'Documents Registry'}
                 {activeTab === 'dashboard' && 'Analytics metrics'}
               </h2>
-              <h3 className="text-base font-bold text-slate-850 mt-1 select-none">
+              <h3 className="text-base font-bold text-slate-900 mt-1 select-none">
                 {activeTab === 'editor' && 'Resume Content Creator'}
                 {activeTab === 'templates' && 'Select Dynamic Design'}
                 {activeTab === 'customize' && 'Pair Typography, Margins & Colors'}
@@ -366,11 +381,11 @@ export default function App() {
               </h3>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="scroll-warm flex-1 min-h-0 overflow-y-auto -mr-2 pr-2">
               {!activeResume ? (
                 <div className="py-12 text-center space-y-2">
                   <p className="text-xs text-slate-400 font-medium font-mono">NO ACTIVE DRAFT DETECTED</p>
-                  <button onClick={() => store.createNewResume('Draft')} className="px-4 py-2 bg-indigo-650 text-white rounded-lg text-xxs font-bold">
+                  <button onClick={() => store.createNewResume('Draft')} className="px-4 py-2 bg-sunset text-white rounded-lg text-xxs font-bold glow-sunset">
                     Create New Draft
                   </button>
                 </div>
@@ -383,10 +398,10 @@ export default function App() {
                   {activeTab === 'templates' && (
                     <div className="space-y-4">
                       {/* Save & reuse custom templates (stored locally) */}
-                      <div className="bg-slate-50/60 border border-slate-100 rounded-xl p-3.5 space-y-3">
+                      <div className="bg-white/70 border border-blue-100 rounded-xl p-3.5 space-y-3 shadow-xxs">
                         <div>
-                          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">My Templates</h4>
-                          <p className="text-[9.5px] text-slate-450 font-medium mt-1">Save your current design (colors, fonts, layout & section options) and reuse it anytime.</p>
+                          <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-widest leading-none">My Templates</h4>
+                          <p className="text-[9.5px] text-slate-500 font-medium mt-1">Save your current design (colors, fonts, layout & section options) and reuse it anytime.</p>
                         </div>
                         <div className="flex gap-2">
                           <input
@@ -394,7 +409,7 @@ export default function App() {
                             placeholder="Name this design..."
                             value={newTemplateName}
                             onChange={(e) => setNewTemplateName(e.target.value)}
-                            className="flex-1 text-xxs px-3 py-2 bg-white border border-slate-205 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-indigo-500 shadow-xxs"
+                            className="flex-1 text-xxs px-3 py-2 bg-white border border-slate-205 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-violet-300 shadow-xxs"
                           />
                           <button
                             type="button"
@@ -404,7 +419,7 @@ export default function App() {
                               if (t) triggerNotification(`Saved design "${t.name}" locally!`);
                             }}
                             title="Save current design as a reusable template"
-                            className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 transition-all text-white rounded-lg text-xxs font-bold flex items-center gap-1 shrink-0 cursor-pointer"
+                            className="px-3 py-2 bg-sunset hover:opacity-90 transition-all text-white rounded-lg text-xxs font-bold flex items-center gap-1 shrink-0 cursor-pointer glow-sunset"
                           >
                             <Plus size={13} />
                             Save
@@ -419,7 +434,7 @@ export default function App() {
                                 <div
                                   key={ct.id}
                                   className={`flex items-center justify-between gap-2 p-2 rounded-lg border bg-white transition-all ${
-                                    isCurrent ? 'border-indigo-600 shadow-xxs' : 'border-slate-100 hover:border-slate-200'
+                                    isCurrent ? 'border-violet-300 ring-2 ring-violet-100 shadow-xxs' : 'border-slate-100 hover:border-violet-200'
                                   }`}
                                 >
                                   <button
@@ -433,7 +448,7 @@ export default function App() {
                                   >
                                     <span className="w-5 h-5 rounded shrink-0 border border-slate-200" style={{ backgroundColor: ct.styles.primaryColor }} />
                                     <span className="text-xxs font-bold text-slate-800 truncate">{ct.name}</span>
-                                    {isCurrent && <span className="text-[8px] bg-indigo-50 text-indigo-700 font-bold uppercase px-1.5 py-0.5 rounded-full font-mono shrink-0">Active</span>}
+                                    {isCurrent && <span className="text-[8px] bg-violet-100 text-violet-700 font-bold uppercase px-1.5 py-0.5 rounded-full font-mono shrink-0">Active</span>}
                                   </button>
                                   <button
                                     type="button"
@@ -452,13 +467,13 @@ export default function App() {
 
                       {/* Search box templates */}
                       <div className="relative">
-                        <Search className="absolute left-3 top-2.5 size-3.5 text-slate-405" />
+                        <Search className="absolute left-3 top-2.5 size-3.5 text-slate-400" />
                         <input
                           type="text"
                           placeholder="Search in 25 categories..."
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
-                          className="w-full pl-9 pr-4 py-2 text-xxs bg-slate-50 border rounded-lg focus:outline-hidden text-slate-700"
+                          className="w-full pl-9 pr-4 py-2 text-xxs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-violet-300 text-slate-700"
                         />
                       </div>
 
@@ -474,17 +489,17 @@ export default function App() {
                               }}
                               className={`p-3.5 rounded-xl border text-left flex gap-3.5 transition-all cursor-pointer ${
                                 isCurrent
-                                  ? 'border-indigo-600 bg-indigo-50/15 shadow-xxs'
-                                  : 'border-slate-100 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-205'
+                                  ? 'border-violet-300 bg-violet-50/70 ring-2 ring-violet-100 shadow-xxs'
+                                  : 'border-slate-100 bg-white/70 hover:bg-white hover:border-violet-200'
                               }`}
                             >
-                              <div className={`w-8 h-8 rounded-lg ${tpl.thumbnailColor} shrink-0 flex items-center justify-center font-bold text-white text-xxs font-mono uppercase`}>
+                              <div className={`w-8 h-8 rounded-lg ${tpl.thumbnailColor} shrink-0 flex items-center justify-center font-bold text-white text-xxs font-mono uppercase shadow-sm`}>
                                 {tpl.category[0]}
                               </div>
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2">
                                   <span className="text-xxs font-bold text-slate-800 leading-none">{tpl.name}</span>
-                                  <span className="text-[8px] bg-slate-150 text-slate-505 font-bold uppercase py-0.5 px-1.5 rounded-full font-mono scale-90">
+                                  <span className="text-[8px] bg-blue-50 text-blue-500 font-bold uppercase py-0.5 px-1.5 rounded-full font-mono scale-90">
                                     {tpl.category}
                                   </span>
                                 </div>
@@ -532,13 +547,13 @@ export default function App() {
           </div>
 
           {/* Right Panel Canvas (66% screen width) - Sticky Sheet PREVIEW */}
-          <div className="flex-1 bg-slate-100 overflow-y-auto p-12 relative flex flex-col items-center min-h-0 h-[calc(100vh-64px)]">
-            
+          <div className="scroll-warm flex-1 overflow-y-auto p-12 relative flex flex-col items-center min-h-0 h-[calc(100vh-64px)]">
+
               {/* Bottom floating control bar pill layout */}
-            <div className="absolute bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 flex items-center bg-white/95 backdrop-blur-md shadow-xl rounded-full px-5 py-2.5 border border-slate-200 gap-4 z-20 no-print hover:bg-white transition-all">
+            <div className="absolute bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 flex items-center glass rounded-full px-5 py-2.5 gap-4 z-20 no-print transition-all">
               <button
                 onClick={handleExportPDFClick}
-                className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded-full text-[10px] font-extrabold hover:bg-indigo-750 transition-all cursor-pointer uppercase tracking-wider"
+                className="flex items-center gap-1 px-3 py-1.5 bg-sunset text-white rounded-full text-[10px] font-extrabold hover:opacity-90 transition-all cursor-pointer uppercase tracking-wider active:scale-95"
               >
                 <Download size={11} />
                 Download PDF
@@ -546,18 +561,18 @@ export default function App() {
 
               <button
                 onClick={triggerPrintPDF}
-                className="flex items-center gap-1 px-3 py-1.5 bg-slate-900 text-white rounded-full text-[10px] font-extrabold hover:bg-black transition-all cursor-pointer uppercase tracking-wider"
+                className="flex items-center gap-1 px-3 py-1.5 bg-slate-900 text-white rounded-full text-[10px] font-extrabold hover:bg-black transition-all cursor-pointer uppercase tracking-wider active:scale-95"
               >
-                <Printer size={11} className="text-indigo-400" />
+                <Printer size={11} className="text-blue-300" />
                 Print Hardcopy
               </button>
 
-              <div className="hidden sm:block w-px h-5 bg-slate-250"></div>
+              <div className="hidden sm:block w-px h-5 bg-slate-200"></div>
 
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => activeResume && saveAsDocx(activeResume)}
-                  className="text-[11px] font-heavy text-slate-655 hover:text-indigo-600 flex items-center gap-1 cursor-pointer transition-colors"
+                  className="text-[11px] font-bold text-slate-600 hover:text-violet-600 flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <Download size={11} />
                   MS Word
@@ -565,7 +580,7 @@ export default function App() {
                 <span className="text-slate-300 text-[10px] select-none">•</span>
                 <button
                   onClick={() => activeResume && saveAsTxt(activeResume)}
-                  className="text-[11px] font-heavy text-slate-655 hover:text-indigo-600 flex items-center gap-1 cursor-pointer transition-colors"
+                  className="text-[11px] font-bold text-slate-600 hover:text-violet-600 flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <FileCode2 size={11} />
                   text
@@ -576,7 +591,7 @@ export default function App() {
             {/* Printable Preview Container */}
             <div className={`flex-1 w-full overflow-y-auto flex flex-col select-none relative z-10 no-print pb-24 transition-all duration-300 ${isPreviewExpanded ? 'max-w-4xl' : 'max-w-2xl'}`}>
               {activeResume && (
-                <div className="bg-white rounded-none shadow-2xl border border-slate-200/80 animate-fade-in relative">
+                <div className="bg-white rounded-sm sheet-glow animate-float-up relative">
                   <LivePreview
                     ref={printAreaRef}
                     resume={activeResume}
@@ -594,20 +609,20 @@ export default function App() {
 
         {/* MOBILE WORKSPACE CONTAINER (Visible only on <= md viewports) */}
         <div className="md:hidden flex-1 flex flex-col min-h-0 select-none pb-20 p-4 space-y-4 no-print">
-          
+
           {/* Header for status summary */}
-          <div className="bg-white p-3 rounded-xl border border-slate-100 flex items-center justify-between">
+          <div className="glass p-3 rounded-2xl flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className={`text-xxs font-black px-1.5 py-0.5 rounded text-white ${
-                (atsResult?.score || 0) > 75 ? 'bg-teal-600' : 'bg-amber-500'
+                (atsResult?.score || 0) > 75 ? 'bg-emerald-500' : 'bg-amber-500'
               }`}>{atsResult?.score}% ATS</span>
               <p className="text-[10px] font-bold text-slate-700 truncate max-w-[150px]">{activeResume?.title}</p>
             </div>
-            <span className="text-[10px] font-bold text-indigo-655 font-mono uppercase bg-indigo-50 px-2 py-0.5 rounded-md leading-none">{mobileTab} view</span>
+            <span className="text-[10px] font-bold text-violet-700 font-mono uppercase bg-violet-100 px-2 py-0.5 rounded-md leading-none">{mobileTab} view</span>
           </div>
 
           {/* Sub Panels Router */}
-          <div className="flex-1 overflow-y-auto bg-white p-4 rounded-xl border border-slate-150 min-h-[300px]">
+          <div className="scroll-warm flex-1 overflow-y-auto glass p-4 rounded-2xl min-h-[300px]">
             {activeResume ? (
               <>
                 {mobileTab === 'edit' && (
@@ -626,12 +641,12 @@ export default function App() {
                             triggerNotification(`Applied design: ${tpl.name}!`);
                           }}
                           className={`p-3.5 rounded-xl border text-left flex gap-3 transition-all ${
-                            activeResume.templateId === tpl.id ? 'border-indigo-650 bg-indigo-50/10' : 'border-slate-100 hover:border-slate-205'
+                            activeResume.templateId === tpl.id ? 'border-violet-300 bg-violet-50/70' : 'border-slate-100 bg-white/70 hover:border-violet-200'
                           }`}
                         >
-                          <div className={`w-7 h-7 rounded ${tpl.thumbnailColor} shrink-0`}></div>
+                          <div className={`w-7 h-7 rounded ${tpl.thumbnailColor} shrink-0 shadow-sm`}></div>
                           <div>
-                            <p className="text-xxs font-bold text-slate-805 leading-none">{tpl.name}</p>
+                            <p className="text-xxs font-bold text-slate-800 leading-none">{tpl.name}</p>
                             <p className="text-[10px] text-slate-400 mt-1">{tpl.category}</p>
                           </div>
                         </button>
@@ -642,7 +657,9 @@ export default function App() {
 
                 {mobileTab === 'preview' && (
                   <div className="h-full">
-                    <LivePreview resume={activeResume} />
+                    <div className="bg-white rounded-sm sheet-glow overflow-hidden">
+                      <LivePreview resume={activeResume} />
+                    </div>
                   </div>
                 )}
 
@@ -656,9 +673,9 @@ export default function App() {
                     <div className="space-y-2 mt-4">
                       <button
                         onClick={handleExportPDFClick}
-                        className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 text-white rounded-xl text-xxs font-bold hover:bg-indigo-700"
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-sunset text-white rounded-xl text-xxs font-bold glow-sunset"
                       >
-                        <Sparkles size={14} className="text-yellow-300" />
+                        <Sparkles size={14} className="text-yellow-200" />
                         Download Selectable PDF
                       </button>
 
@@ -672,14 +689,14 @@ export default function App() {
 
                       <button
                         onClick={() => saveAsDocx(activeResume)}
-                        className="w-full flex items-center justify-center gap-2 py-3 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xxs font-bold"
+                        className="w-full flex items-center justify-center gap-2 py-3 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xxs font-bold"
                       >
                         Export MS Word (.docx)
                       </button>
 
                       <button
                         onClick={() => saveAsTxt(activeResume)}
-                        className="w-full flex items-center justify-center gap-2 py-3 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xxs font-bold"
+                        className="w-full flex items-center justify-center gap-2 py-3 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xxs font-bold"
                       >
                         Export Plain Text (.txt)
                       </button>
@@ -693,7 +710,7 @@ export default function App() {
           </div>
 
           {/* Bottom Dock Navigation Bar */}
-          <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-3 py-2 flex justify-around items-center z-50 shadow-lg no-print">
+          <div className="fixed bottom-0 left-0 right-0 glass-header px-3 py-2 flex justify-around items-center z-50 no-print">
             {[
               { id: 'edit', label: 'Edit Draft', icon: FileTextIcon },
               { id: 'templates', label: 'Templates', icon: LayoutGrid },
@@ -706,7 +723,7 @@ export default function App() {
                   key={tab.id}
                   onClick={() => setMobileTab(tab.id as any)}
                   className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-xl transition-all ${
-                    isSel ? 'text-indigo-650 font-bold bg-indigo-50/30' : 'text-slate-400'
+                    isSel ? 'text-white bg-sunset font-bold' : 'text-slate-400'
                   }`}
                 >
                   <tab.icon size={16} />
@@ -722,12 +739,12 @@ export default function App() {
 
       {/* Raw Text / File Upload Resume Importer Dialog */}
       {showImportDialog && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in no-print">
-          <div className="bg-white border rounded-2xl max-w-xl w-full p-6 space-y-4 text-left shadow-2xl relative overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in no-print">
+          <div className="bg-white border border-blue-100 rounded-2xl max-w-xl w-full p-6 space-y-4 text-left shadow-2xl relative overflow-hidden animate-float-up">
             <div className="flex justify-between items-start border-b border-slate-100 pb-3">
               <div>
-                <span className="text-[10px] font-black text-indigo-650 uppercase font-mono tracking-wider">Local Resume Parser</span>
-                <h3 className="text-sm font-bold text-slate-800 mt-0.5">Upload & Auto-Fill Resume</h3>
+                <span className="text-[10px] font-black text-blue-500 uppercase font-mono tracking-wider">Local Resume Parser</span>
+                <h3 className="text-sm font-bold text-slate-900 mt-0.5">Upload & Auto-Fill Resume</h3>
               </div>
               <button
                 onClick={() => !isImportLoading && setShowImportDialog(false)}
@@ -740,7 +757,7 @@ export default function App() {
 
             {isImportLoading ? (
               <div className="py-12 flex flex-col items-center justify-center gap-4 text-center">
-                <div className="w-12 h-12 rounded-full border-4 border-indigo-150 border-t-indigo-650 animate-spin" />
+                <div className="w-12 h-12 rounded-full border-4 border-blue-100 border-t-violet-500 animate-spin" />
                 <div className="space-y-1.5 max-w-sm">
                   <p className="text-xs font-black text-slate-800 animate-pulse">Running Local PDF / DOCX Parser...</p>
                   <p className="text-[9.5px] text-slate-450 leading-relaxed">
@@ -749,8 +766,8 @@ export default function App() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-4 font-sans">
-                <p className="text-[10px] text-slate-450 font-medium leading-relaxed">
+              <div className="space-y-4 font-display">
+                <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
                   Select your existing resume document file. Our secure client-side document parser will read the file, accurately extract sections (experience, education, summary, and skills), and auto-populate them directly into your current template completely offline.
                 </p>
 
@@ -758,7 +775,7 @@ export default function App() {
                   {/* Option 1: PDF */}
                   <div
                     onClick={() => document.getElementById('pdf-file-selector')?.click()}
-                    className="border border-slate-200 bg-white hover:border-red-500 hover:bg-red-50/5 rounded-xl p-5 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-3 group shadow-xxs hover:shadow-sm"
+                    className="border border-slate-200 bg-white hover:border-red-400 hover:bg-red-50/40 rounded-xl p-5 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-3 group shadow-xxs hover:shadow-md"
                   >
                     <input
                       id="pdf-file-selector"
@@ -771,7 +788,7 @@ export default function App() {
                         }
                       }}
                     />
-                    <div className="w-12 h-12 rounded-full bg-red-50 group-hover:bg-red-100 flex items-center justify-center text-red-650 transition-colors">
+                    <div className="w-12 h-12 rounded-full bg-red-50 group-hover:bg-red-100 flex items-center justify-center text-red-500 transition-colors">
                       <FileText size={24} />
                     </div>
                     <div className="space-y-0.5">
@@ -780,7 +797,7 @@ export default function App() {
                         Extract instantly from vector or scanned PDF files
                       </p>
                     </div>
-                    <span className="text-[8px] font-bold py-0.5 px-2 bg-red-50 text-red-700 rounded-full font-mono">
+                    <span className="text-[8px] font-bold py-0.5 px-2 bg-red-50 text-red-600 rounded-full font-mono">
                       PDF Document
                     </span>
                   </div>
@@ -788,7 +805,7 @@ export default function App() {
                   {/* Option 2: Word Doc */}
                   <div
                     onClick={() => document.getElementById('docx-file-selector')?.click()}
-                    className="border border-slate-200 bg-white hover:border-blue-500 hover:bg-blue-50/5 rounded-xl p-5 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-3 group shadow-xxs hover:shadow-sm"
+                    className="border border-slate-200 bg-white hover:border-blue-400 hover:bg-blue-50/40 rounded-xl p-5 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-3 group shadow-xxs hover:shadow-md"
                   >
                     <input
                       id="docx-file-selector"
@@ -801,7 +818,7 @@ export default function App() {
                         }
                       }}
                     />
-                    <div className="w-12 h-12 rounded-full bg-blue-50 group-hover:bg-blue-100 flex items-center justify-center text-blue-650 transition-colors">
+                    <div className="w-12 h-12 rounded-full bg-blue-50 group-hover:bg-blue-100 flex items-center justify-center text-blue-600 transition-colors">
                       <FileSpreadsheet size={24} />
                     </div>
                     <div className="space-y-0.5">
@@ -823,7 +840,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => setShowPasteField(!showPasteField)}
-                      className="text-xxs font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer hover:underline"
+                      className="text-xxs font-bold text-violet-600 hover:text-violet-800 cursor-pointer hover:underline"
                     >
                       {showPasteField ? 'Hide text block' : 'Or paste raw resume text'}
                     </button>
@@ -836,7 +853,7 @@ export default function App() {
                         placeholder="Paste raw block text or unformatted lists directly here..."
                         value={rawPastedText}
                         onChange={(e) => setRawPastedText(e.target.value)}
-                        className="w-full text-xxs px-3 py-2 bg-slate-50 border border-slate-150 rounded-xl focus:border-indigo-400 focus:outline-hidden font-sans leading-relaxed text-slate-700"
+                        className="w-full text-xxs px-3 py-2 bg-slate-50 border border-slate-150 rounded-xl focus:border-violet-400 focus:ring-2 focus:ring-violet-200 focus:outline-hidden font-display leading-relaxed text-slate-700"
                       />
                       <div className="flex justify-end gap-2">
                         <button
@@ -850,7 +867,7 @@ export default function App() {
                           type="button"
                           onClick={handleImportText}
                           disabled={rawPastedText.trim().length === 0}
-                          className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-750 disabled:opacity-40 text-white rounded-lg text-xxs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                          className="px-4 py-1.5 bg-sunset hover:opacity-90 disabled:opacity-40 text-white rounded-lg text-xxs font-bold transition-all cursor-pointer flex items-center gap-1.5"
                         >
                           <span>Extract Text Block</span>
                         </button>
@@ -877,16 +894,16 @@ export default function App() {
 
       {/* High-Fidelity Selectable PDF Export Dialog */}
       {showExportModal && (
-        <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in no-print">
-          <div className="bg-white border border-slate-150 rounded-2xl max-w-md w-full p-6 space-y-4 text-left shadow-2xl relative overflow-hidden font-sans">
+        <div className="fixed inset-0 z-50 bg-slate-900/45 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in no-print">
+          <div className="bg-white border border-blue-100 rounded-2xl max-w-md w-full p-6 space-y-4 text-left shadow-2xl relative overflow-hidden font-display animate-float-up">
             <div className="flex justify-between items-start border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-650 shrink-0">
+                <div className="w-8 h-8 rounded-full bg-sunset flex items-center justify-center text-white shrink-0">
                   <Sparkles size={16} />
                 </div>
                 <div>
-                  <span className="text-[10px] font-black text-indigo-650 uppercase font-mono tracking-wider animate-pulse font-bold">Vector PDF Exporter</span>
-                  <h3 className="text-sm font-bold text-slate-805 mt-0.5">Open App in New Tab</h3>
+                  <span className="text-[10px] font-black text-blue-500 uppercase font-mono tracking-wider animate-pulse">Vector PDF Exporter</span>
+                  <h3 className="text-sm font-bold text-slate-900 mt-0.5">Open App in New Tab</h3>
                 </div>
               </div>
               <button
@@ -900,13 +917,13 @@ export default function App() {
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
               Because you are viewing this app within the sandboxed live preview panel, direct printing of selectable vector PDFs is restricted by browser security policies.
             </p>
-            
+
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
               To download your <strong>flawless, selectable multi-page A4 Vector PDF</strong>, please open the app in a new tab where you can click "Download PDF" and directly save or print it.
             </p>
 
-            <div className="bg-amber-550/10 border border-amber-300 text-amber-900 p-3.5 rounded-xl space-y-1.5 leading-relaxed font-sans font-medium text-[10.5px]">
-              <p className="font-bold text-amber-950">💡 Pro Tips inside New Tab Print Preview:</p>
+            <div className="bg-amber-50 border border-amber-200 text-amber-900 p-3.5 rounded-xl space-y-1.5 leading-relaxed font-display font-medium text-[10.5px]">
+              <p className="font-bold text-amber-900">💡 Pro Tips inside New Tab Print Preview:</p>
               <p>1. Ensure destination is set to <strong>"Save as PDF"</strong></p>
               <p>2. Toggle <strong>"Background graphics"</strong> to ENABLED</p>
               <p>3. Toggle <strong>"Headers and footers"</strong> to DISABLED</p>
@@ -918,7 +935,7 @@ export default function App() {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setShowExportModal(false)}
-                className="inline-flex w-full items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[11px] uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 text-center"
+                className="inline-flex w-full items-center justify-center gap-2 py-3 bg-sunset hover:opacity-90 text-white font-black text-[11px] uppercase tracking-wider rounded-xl transition-all glow-sunset active:scale-95 text-center"
               >
                 <span>Open App in New Tab ↗</span>
               </a>

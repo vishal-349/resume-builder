@@ -126,7 +126,7 @@ export default function SectionManager({ resume, onUpdate }: SectionManagerProps
                   type="button"
                   onClick={() => handleAddStandard(sec.type, sec.label)}
                   title={`Add ${sec.label} section`}
-                  className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 bg-white border border-slate-200 hover:border-indigo-650 hover:bg-slate-50 text-slate-600 hover:text-indigo-655 rounded-lg transition-all shadow-xxs cursor-pointer"
+                  className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 bg-white border border-slate-200 hover:border-violet-300 hover:bg-slate-50 text-slate-600 hover:text-violet-600 rounded-lg transition-all shadow-xxs cursor-pointer"
                 >
                   <Plus size={10} className="text-slate-400" />
                   {sec.label}
@@ -143,13 +143,13 @@ export default function SectionManager({ resume, onUpdate }: SectionManagerProps
             placeholder="Or type a custom section (Hobbies, Interests...)"
             value={customName}
             onChange={(e) => setCustomName(e.target.value)}
-            className="flex-1 text-xs px-3 py-2 bg-white border border-slate-205 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-indigo-500 shadow-xxs"
+            className="flex-1 text-xs px-3 py-2 bg-white border border-slate-205 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-violet-300 shadow-xxs"
           />
           <button
             type="submit"
             disabled={customName.trim().length === 0}
             title="Add a new custom section"
-            className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 transition-all text-white rounded-lg text-xs font-bold flex items-center gap-1 shrink-0 cursor-pointer"
+            className="px-3 py-2 bg-sunset hover:opacity-90 glow-sunset disabled:opacity-40 transition-all text-white rounded-lg text-xs font-bold flex items-center gap-1 shrink-0 cursor-pointer"
           >
             <Plus size={13} />
             Add Custom
@@ -199,7 +199,7 @@ export default function SectionManager({ resume, onUpdate }: SectionManagerProps
                 className={`p-3 bg-white border rounded-xl transition-all ${
                   isDragging ? 'opacity-40' : ''
                 } ${
-                  isDragOver ? 'border-indigo-500 ring-2 ring-indigo-200' : sec.visible ? 'border-slate-100 hover:border-slate-200' : 'border-slate-100 bg-slate-50/40 opacity-70'
+                  isDragOver ? 'border-violet-300 ring-2 ring-violet-200' : sec.visible ? 'border-slate-100 hover:border-slate-200' : 'border-slate-100 bg-slate-50/40 opacity-70'
                 }`}
               >
                 <div className="flex items-center justify-between gap-3">
@@ -245,7 +245,7 @@ export default function SectionManager({ resume, onUpdate }: SectionManagerProps
                           type="text"
                           value={editTitle}
                           onChange={(e) => setEditTitle(e.target.value)}
-                          className="text-xs font-semibold text-slate-800 border-b border-indigo-600 outline-hidden bg-transparent py-0.5 w-full font-sans focus:outline-hidden"
+                          className="text-xs font-semibold text-slate-800 border-b border-violet-400 outline-hidden bg-transparent py-0.5 w-full font-sans focus:outline-hidden"
                           autoFocus
                           onBlur={() => saveRenameInput(sec.id)}
                           onKeyDown={(e) => e.key === 'Enter' && saveRenameInput(sec.id)}
@@ -287,7 +287,7 @@ export default function SectionManager({ resume, onUpdate }: SectionManagerProps
                     onClick={() => setOptionsOpenId(optionsOpenId === sec.id ? null : sec.id)}
                     className={`p-2 rounded-lg border transition-all cursor-pointer ${
                       optionsOpenId === sec.id
-                        ? 'text-indigo-600 bg-indigo-50/40 border-indigo-200'
+                        ? 'text-violet-600 bg-violet-50 border-violet-100'
                         : 'text-slate-400 border-slate-100 hover:bg-slate-50 hover:text-slate-600'
                     }`}
                     title="Display options for this section"
@@ -305,7 +305,7 @@ export default function SectionManager({ resume, onUpdate }: SectionManagerProps
                       }}
                       className={`p-2 rounded-lg border transition-all cursor-pointer ${
                         sec.visible
-                          ? 'text-indigo-600 bg-indigo-50/15 border-indigo-100'
+                          ? 'text-violet-600 bg-violet-50 border-violet-100'
                           : 'text-slate-400 bg-slate-50 border-slate-100'
                       }`}
                       title={sec.visible ? 'Hide section from output' : 'Display section on output'}
@@ -363,7 +363,7 @@ export default function SectionManager({ resume, onUpdate }: SectionManagerProps
                           className={`text-[10px] font-bold px-2 py-1 rounded-md border transition-all cursor-pointer ${
                             sec.layout?.showTitle === false
                               ? 'bg-slate-50 border-slate-200 text-slate-500'
-                              : 'bg-indigo-50/40 border-indigo-200 text-indigo-700'
+                              : 'bg-violet-50 border-violet-300 text-violet-600'
                           }`}
                         >
                           {sec.layout?.showTitle === false ? 'Hidden' : 'Shown'}
@@ -388,7 +388,7 @@ export default function SectionManager({ resume, onUpdate }: SectionManagerProps
                               type="button"
                               onClick={() => setLayout(sec.id, { align: v })}
                               className={`p-1.5 rounded-md border transition-all cursor-pointer ${
-                                current === v ? 'bg-indigo-50/40 border-indigo-200 text-indigo-700' : 'border-slate-100 text-slate-400 hover:bg-slate-50'
+                                current === v ? 'bg-violet-50 border-violet-300 text-violet-600' : 'border-slate-100 text-slate-400 hover:bg-slate-50'
                               }`}
                               title={`Align ${v}`}
                             >
@@ -412,7 +412,7 @@ export default function SectionManager({ resume, onUpdate }: SectionManagerProps
                                 type="button"
                                 onClick={() => setLayout(sec.id, { skillStyle: v })}
                                 className={`text-[10px] font-bold px-2 py-1 rounded-md border capitalize transition-all cursor-pointer ${
-                                  current === v ? 'bg-indigo-50/40 border-indigo-200 text-indigo-700' : 'border-slate-100 text-slate-500 hover:bg-slate-50'
+                                  current === v ? 'bg-violet-50 border-violet-300 text-violet-600' : 'border-slate-100 text-slate-500 hover:bg-slate-50'
                                 }`}
                               >
                                 {v === 'inline' ? 'Comma' : v === 'list' ? 'Bullets' : 'Chips'}
@@ -436,7 +436,7 @@ export default function SectionManager({ resume, onUpdate }: SectionManagerProps
                                 type="button"
                                 onClick={() => setLayout(sec.id, { columns: c })}
                                 className={`text-[10px] font-bold w-7 py-1 rounded-md border transition-all cursor-pointer ${
-                                  current === c ? 'bg-indigo-50/40 border-indigo-200 text-indigo-700' : 'border-slate-100 text-slate-500 hover:bg-slate-50'
+                                  current === c ? 'bg-violet-50 border-violet-300 text-violet-600' : 'border-slate-100 text-slate-500 hover:bg-slate-50'
                                 }`}
                               >
                                 {c}
