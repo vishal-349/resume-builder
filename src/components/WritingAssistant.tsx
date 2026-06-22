@@ -8,6 +8,7 @@
  * applies them via the store. 100% client-side (see tools/writingCheck).
  */
 import React, { useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Resume } from '../types';
 import { store } from '../store';
 import { checkWriting, WritingIssue } from '../tools/writingCheck';
@@ -112,8 +113,8 @@ export default function WritingAssistant({ resume, onClose, onApplied }: Props) 
     onApplied();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in no-print">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in no-print">
       <div className="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full p-5 shadow-2xl animate-float-up max-h-[88vh] flex flex-col">
         <div className="flex justify-between items-center border-b border-slate-100 pb-3 shrink-0">
           <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -174,6 +175,7 @@ export default function WritingAssistant({ resume, onClose, onApplied }: Props) 
           <button onClick={onClose} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold cursor-pointer">Done</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

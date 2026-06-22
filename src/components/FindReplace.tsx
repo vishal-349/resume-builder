@@ -7,6 +7,7 @@
  * applies via the store (one undo step). Never touches the Personal/contact card.
  */
 import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Resume } from '../types';
 import { store } from '../store';
 import { Search, X, Replace, CheckCircle2 } from 'lucide-react';
@@ -87,8 +88,8 @@ export default function FindReplace({ resume, onClose, onApplied }: Props) {
     onApplied();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in no-print">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in no-print">
       <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl animate-float-up">
         <div className="flex justify-between items-center border-b border-slate-100 pb-3">
           <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2"><Search size={15} className="text-violet-500" /> Find &amp; Replace</h3>
@@ -151,6 +152,7 @@ export default function FindReplace({ resume, onClose, onApplied }: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
