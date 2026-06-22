@@ -8,9 +8,10 @@ import { createPortal } from 'react-dom';
 import { store, loadInitialState, DEFAULT_STYLES } from './store';
 import { TEMPLATE_DEFINITIONS, COLOR_PRESETS } from './templates';
 import { analyzeResumeATS } from './atsChecker';
-import { parseRawResumeText } from './importEngine';
 import { saveAsDocx, saveAsTxt } from './docxExport';
-import { parseFileToText } from './fileParser';
+import { readDocument, linesFromText } from './import/readDocument';
+import { analyzeResume, ParsedResume } from './import/analyzeResume';
+import { buildImportedResume } from './import/buildImportedResume';
 import { TRANSLATIONS } from './translations';
 
 // Components
@@ -22,6 +23,7 @@ import StatsDashboard from './components/StatsDashboard';
 import PortfolioGenerator from './components/PortfolioGenerator';
 import ResumeForm from './components/ResumeForm';
 import ShinyButton from './components/ShinyButton';
+import ImportPreview from './components/ImportPreview';
 
 import {
   FileText,
@@ -64,6 +66,8 @@ export default function App() {
   const [mobileTab, setMobileTab] = useState<'edit' | 'templates' | 'preview' | 'download'>('edit');
   const [rawPastedText, setRawPastedText] = useState('');
   const [showImportDialog, setShowImportDialog] = useState(false);
+  // Smart Import: the analyzed resume awaiting user confirmation in the preview.
+  const [importPreview, setImportPreview] = useState<ParsedResume | null>(null);
   const [showPasteField, setShowPasteField] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [successToast, setSuccessToast] = useState('');
@@ -110,27 +114,23 @@ export default function App() {
   const [isImportLoading, setIsImportLoading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
+  // Read → analyze → open the preview screen. Fully offline, no AI/backend.
   const handleFileUpload = async (file: File) => {
     setIsImportLoading(true);
-    setSuccessToast(`Reading and loading "${file.name}"...`);
+    setSuccessToast(`Reading "${file.name}"...`);
     try {
-      const extractedText = await parseFileToText(file);
-
-      setSuccessToast('Structuring sections locally...');
-      // Fully offline, deterministic parser — no network/AI dependency.
-      const parsedResume = parseRawResumeText(extractedText, activeResume?.language || 'en');
-
-      // Update resume document title to original filename without extension
-      parsedResume.title = file.name.replace(/\.[^/.]+$/, "");
-
-      // Store the parsed result inside local storage & state
-      store.addImportedResume(parsedResume);
-      triggerNotification(`Imported "${file.name}" successfully!`);
-
+      const { lines } = await readDocument(file);
+      setSuccessToast('Detecting sections & extracting data...');
+      const parsed = analyzeResume(lines);
+      // Default the resume name to the file name if no person name was found.
+      if (!parsed.contact.fullName) {
+        parsed.resumeName = file.name.replace(/\.[^/.]+$/, '') + ' Resume';
+      }
       setShowImportDialog(false);
+      setImportPreview(parsed);
     } catch (err: any) {
       console.error(err);
-      triggerNotification('Document parsing failed: ' + err.message);
+      triggerNotification('Import failed: ' + (err?.message || 'could not read file'));
     } finally {
       setIsImportLoading(false);
     }
@@ -140,19 +140,36 @@ export default function App() {
     if (rawPastedText.trim().length === 0) return;
     setIsImportLoading(true);
     try {
-      setSuccessToast('Structuring sections locally...');
-      // Fully offline, deterministic parser — no network/AI dependency.
-      const parsed = parseRawResumeText(rawPastedText, activeResume?.language || 'en');
-
-      store.addImportedResume(parsed);
-      triggerNotification('Imported pasted text successfully!');
-      setRawPastedText('');
+      setSuccessToast('Detecting sections & extracting data...');
+      const parsed = analyzeResume(linesFromText(rawPastedText));
       setShowImportDialog(false);
+      setRawPastedText('');
+      setImportPreview(parsed);
     } catch (err: any) {
       console.error(err);
-      triggerNotification('Import failed: ' + err.message);
+      triggerNotification('Import failed: ' + (err?.message || 'could not parse text'));
     } finally {
       setIsImportLoading(false);
+    }
+  };
+
+  // Build the editable resume + auto-create a reusable custom template.
+  const handleConfirmImport = (finalParsed: ParsedResume) => {
+    try {
+      const resume = buildImportedResume(finalParsed, activeResume?.language || 'en');
+      store.addImportedResume(resume);
+      // Register a reusable preset named after the candidate and link the resume
+      // to it (so it shows as the active design). Dedupes by name on re-import.
+      try {
+        const tpl = store.saveCurrentAsTemplate(finalParsed.resumeName);
+        if (tpl) store.applyCustomTemplate(tpl.id);
+      } catch { /* non-fatal */ }
+      setImportPreview(null);
+      setActiveTab('editor');
+      triggerNotification(`Created "${resume.title}" — fully editable!`);
+    } catch (err: any) {
+      console.error(err);
+      triggerNotification('Could not build resume: ' + (err?.message || 'unknown error'));
     }
   };
 
@@ -738,13 +755,22 @@ export default function App() {
       </main>
 
       {/* Raw Text / File Upload Resume Importer Dialog */}
+      {/* Smart Import preview — appears after a file/paste is analyzed */}
+      {importPreview && (
+        <ImportPreview
+          parsed={importPreview}
+          onCancel={() => setImportPreview(null)}
+          onConfirm={handleConfirmImport}
+        />
+      )}
+
       {showImportDialog && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in no-print">
           <div className="bg-white border border-blue-100 rounded-2xl max-w-xl w-full p-6 space-y-4 text-left shadow-2xl relative overflow-hidden animate-float-up">
             <div className="flex justify-between items-start border-b border-slate-100 pb-3">
               <div>
-                <span className="text-[10px] font-black text-blue-500 uppercase font-mono tracking-wider">Local Resume Parser</span>
-                <h3 className="text-sm font-bold text-slate-900 mt-0.5">Upload & Auto-Fill Resume</h3>
+                <span className="text-[10px] font-black text-blue-500 uppercase font-mono tracking-wider">Smart Resume Import</span>
+                <h3 className="text-sm font-bold text-slate-900 mt-0.5">Upload PDF / Word — auto-build a custom resume</h3>
               </div>
               <button
                 onClick={() => !isImportLoading && setShowImportDialog(false)}
@@ -766,22 +792,31 @@ export default function App() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-4 font-display">
+              <div
+                className={`space-y-4 font-display rounded-xl transition-all ${dragActive ? 'ring-2 ring-violet-400 ring-offset-2' : ''}`}
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (!dragActive) setDragActive(true); }}
+                onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragActive(true); }}
+                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragActive(false); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setDragActive(false);
+                  const f = e.dataTransfer?.files?.[0];
+                  if (f) handleFileUpload(f);
+                }}
+              >
                 <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                  Select your existing resume document file. Our secure client-side document parser will read the file, accurately extract sections (experience, education, summary, and skills), and auto-populate them directly into your current template completely offline.
+                  Click a card below to choose your resume file, or <span className="font-bold text-violet-600">drag &amp; drop</span> a PDF / Word file anywhere in this box. Everything is parsed locally in your browser.
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Option 1: PDF */}
-                  <div
-                    onClick={() => document.getElementById('pdf-file-selector')?.click()}
-                    className="border border-slate-200 bg-white hover:border-red-400 hover:bg-red-50/40 rounded-xl p-5 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-3 group shadow-xxs hover:shadow-md"
-                  >
+                  {/* Option 1: PDF — the real <input> overlays the whole card so a click always opens the picker */}
+                  <label className="relative border border-slate-200 bg-white hover:border-red-400 hover:bg-red-50/40 rounded-xl p-5 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-3 group shadow-xxs hover:shadow-md">
                     <input
-                      id="pdf-file-selector"
                       type="file"
-                      accept=".pdf"
-                      className="hidden"
+                      accept=".pdf,application/pdf"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                      onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
                       onChange={(e) => {
                         if (e.target.files && e.target.files[0]) {
                           handleFileUpload(e.target.files[0]);
@@ -800,18 +835,15 @@ export default function App() {
                     <span className="text-[8px] font-bold py-0.5 px-2 bg-red-50 text-red-600 rounded-full font-mono">
                       PDF Document
                     </span>
-                  </div>
+                  </label>
 
-                  {/* Option 2: Word Doc */}
-                  <div
-                    onClick={() => document.getElementById('docx-file-selector')?.click()}
-                    className="border border-slate-200 bg-white hover:border-blue-400 hover:bg-blue-50/40 rounded-xl p-5 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-3 group shadow-xxs hover:shadow-md"
-                  >
+                  {/* Option 2: Word Doc — real <input> overlays the whole card */}
+                  <label className="relative border border-slate-200 bg-white hover:border-blue-400 hover:bg-blue-50/40 rounded-xl p-5 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-3 group shadow-xxs hover:shadow-md">
                     <input
-                      id="docx-file-selector"
                       type="file"
-                      accept=".docx,.doc"
-                      className="hidden"
+                      accept=".docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                      onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
                       onChange={(e) => {
                         if (e.target.files && e.target.files[0]) {
                           handleFileUpload(e.target.files[0]);
@@ -830,7 +862,7 @@ export default function App() {
                     <span className="text-[8px] font-bold py-0.5 px-2 bg-blue-50 text-blue-700 rounded-full font-mono">
                       .doc / .docx
                     </span>
-                  </div>
+                  </label>
                 </div>
 
                 {/* Alternative paste option toggle */}

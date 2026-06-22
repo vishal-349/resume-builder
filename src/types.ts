@@ -35,7 +35,7 @@ export interface SectionLayout {
   showTitle?: boolean;                                 // default true
   align?: 'left' | 'center' | 'right' | 'justify';     // content alignment, default left
   columns?: 1 | 2 | 3;                                 // grid columns for list-style sections
-  skillStyle?: 'chips' | 'list' | 'inline';            // skills section only, default 'chips'
+  skillStyle?: 'chips' | 'list' | 'numbered' | 'inline'; // skills section only, default 'chips'
 }
 
 export interface PersonalInfo {

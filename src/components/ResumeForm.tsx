@@ -6,7 +6,9 @@
 import React, { useState } from 'react';
 import { Resume, ResumeSection, SectionType } from '../types';
 import { store } from '../store';
-import { PlusCircle, Trash2, ChevronDown, ChevronRight, Eye, EyeOff, Clipboard, Plus } from 'lucide-react';
+import { PlusCircle, Trash2, ChevronDown, ChevronRight, ChevronUp, Eye, EyeOff, Clipboard, Plus, GripVertical, Search, SpellCheck2, Layers } from 'lucide-react';
+import FindReplace from './FindReplace';
+import WritingAssistant from './WritingAssistant';
 
 interface ResumeFormProps {
   resume: Resume;
@@ -18,6 +20,14 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
 
   // Tracks which item currently has an active Delete/Cancel confirmation prompt.
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  // Drag-and-drop reordering of items within a section.
+  const [dragItem, setDragItem] = useState<{ sectionId: string; index: number } | null>(null);
+  const [dragOver, setDragOver] = useState<{ sectionId: string; index: number } | null>(null);
+
+  // Tool modals.
+  const [showFindReplace, setShowFindReplace] = useState(false);
+  const [showWriting, setShowWriting] = useState(false);
 
   // The preview supports inline rich-text editing, which stores HTML (e.g.
   // <b>, <font style="font-size:..">). The form inputs are plain-text editors,
@@ -44,14 +54,14 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
   };
 
   /**
-   * Renders an explicit two-step delete control. A plain trash button first;
-   * once clicked it expands into "Delete" / "Cancel" — deletion only proceeds
-   * when the user explicitly confirms.
+   * Two-step delete control (no positioning). A plain trash button first; once
+   * clicked it expands into "Delete" / "Cancel" — deletion only proceeds when
+   * the user explicitly confirms.
    */
-  const renderDeleteControl = (sectionId: string, itemId: string, posClass: string) => {
+  const renderDeleteInline = (sectionId: string, itemId: string) => {
     if (confirmDeleteId === itemId) {
       return (
-        <div className={`${posClass} flex items-center gap-1 bg-red-50 border border-red-200 rounded-lg px-1.5 py-1 z-10 animate-fade-in shadow-sm`}>
+        <div className="flex items-center gap-1 bg-red-50 border border-red-200 rounded-lg px-1.5 py-1 animate-fade-in shadow-sm">
           <button
             type="button"
             onClick={() => {
@@ -78,11 +88,89 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
       <button
         type="button"
         onClick={() => setConfirmDeleteId(itemId)}
-        className={`${posClass} p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-white transition-all cursor-pointer`}
+        className="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-white transition-all cursor-pointer"
         title="Delete entry"
       >
         <Trash2 size={12} />
       </button>
+    );
+  };
+
+  const moveItem = (sectionId: string, itemId: string, dir: 'up' | 'down') => {
+    store.moveSectionItem(sectionId, itemId, dir);
+    onUpdate();
+  };
+
+  /** Drop-zone props for an item container — accepts a dragged sibling and reorders. */
+  const dropZoneProps = (sectionId: string, index: number) => ({
+    onDragOver: (e: React.DragEvent) => {
+      if (!dragItem || dragItem.sectionId !== sectionId) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (!dragOver || dragOver.sectionId !== sectionId || dragOver.index !== index) {
+        setDragOver({ sectionId, index });
+      }
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      if (dragItem && dragItem.sectionId === sectionId && dragItem.index !== index) {
+        store.reorderSectionItems(sectionId, dragItem.index, index);
+        onUpdate();
+      }
+      setDragItem(null);
+      setDragOver(null);
+    },
+  });
+
+  const isDragging = (sectionId: string, index: number) =>
+    !!dragItem && dragItem.sectionId === sectionId && dragItem.index === index;
+  const isDragTarget = (sectionId: string, index: number) =>
+    !!dragOver && dragOver.sectionId === sectionId && dragOver.index === index && !isDragging(sectionId, index);
+
+  /**
+   * Per-item reorder + delete toolbar. A drag handle (drag to any position) plus
+   * up/down buttons (one step). Lets users rearrange the entries inside any
+   * repeatable section (skills, experience, projects, …). `posClass` positions
+   * the cluster (absolute on cards, inline for compact rows).
+   */
+  const renderItemControls = (sectionId: string, items: any[], idx: number, posClass: string, vertical = false) => {
+    const itemId = items[idx].id;
+    const showReorder = items.length > 1 && confirmDeleteId !== itemId;
+    return (
+      <div className={`${posClass} flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-0.5 z-10`}>
+        {showReorder && (
+          <>
+            <span
+              draggable
+              onDragStart={(e) => { setDragItem({ sectionId, index: idx }); e.dataTransfer.effectAllowed = 'move'; }}
+              onDragEnd={() => { setDragItem(null); setDragOver(null); }}
+              title="Drag to reorder"
+              className="cursor-grab active:cursor-grabbing text-slate-350 hover:text-violet-600 transition-colors px-0.5"
+            >
+              <GripVertical size={15} />
+            </span>
+            <button
+              type="button"
+              disabled={idx === 0}
+              onClick={() => moveItem(sectionId, itemId, 'up')}
+              className="p-1 rounded-md border border-slate-200 bg-white text-slate-500 hover:text-violet-600 hover:border-violet-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all shadow-xxxxs"
+              title="Move up"
+            >
+              <ChevronUp size={13} />
+            </button>
+            <button
+              type="button"
+              disabled={idx === items.length - 1}
+              onClick={() => moveItem(sectionId, itemId, 'down')}
+              className="p-1 rounded-md border border-slate-200 bg-white text-slate-500 hover:text-violet-600 hover:border-violet-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all shadow-xxxxs"
+              title="Move down"
+            >
+              <ChevronDown size={13} />
+            </button>
+          </>
+        )}
+        {renderDeleteInline(sectionId, itemId)}
+      </div>
     );
   };
 
@@ -129,6 +217,34 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
 
   return (
     <div className="space-y-4" id="resume-builder-form-scroller">
+      {/* Content tools */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          type="button"
+          onClick={() => setShowFindReplace(true)}
+          className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 hover:border-violet-300 hover:text-violet-600 text-slate-600 rounded-xl text-xxs font-bold shadow-xxs transition-all cursor-pointer"
+          title="Find & replace text across sections or a single field"
+        >
+          <Search size={13} /> Find &amp; Replace
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowWriting(true)}
+          className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 hover:border-violet-300 hover:text-violet-600 text-slate-600 rounded-xl text-xxs font-bold shadow-xxs transition-all cursor-pointer"
+          title="Spell-check & writing suggestions"
+        >
+          <SpellCheck2 size={13} /> Writing Check
+        </button>
+      </div>
+
+      {showFindReplace && (
+        /* store methods already re-render via emit(); avoid an extra no-op history entry */
+        <FindReplace resume={resume} onClose={() => setShowFindReplace(false)} onApplied={() => {}} />
+      )}
+      {showWriting && (
+        <WritingAssistant resume={resume} onClose={() => setShowWriting(false)} onApplied={() => {}} />
+      )}
+
       {sections.map((sec) => {
         const isCollapsed = sec.collapsed ?? false;
         const isVisible = sec.visible;
@@ -243,8 +359,12 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                 {sec.type === 'experience' && (
                   <div className="space-y-4">
                     {sec.items.map((exp, expIdx) => (
-                      <div key={exp.id} className="p-4 bg-slate-50 border border-slate-105 rounded-xl space-y-3 relative group/item animate-fade-in">
-                        {renderDeleteControl(sec.id, exp.id, 'absolute top-3.5 right-3.5')}
+                      <div
+                        key={exp.id}
+                        {...dropZoneProps(sec.id, expIdx)}
+                        className={`p-4 pr-12 bg-slate-50 border rounded-xl space-y-3 relative group/item animate-fade-in transition-all ${isDragging(sec.id, expIdx) ? 'opacity-40' : ''} ${isDragTarget(sec.id, expIdx) ? 'border-violet-300 ring-2 ring-violet-200' : 'border-slate-105'}`}
+                      >
+                        {renderItemControls(sec.id, sec.items, expIdx, 'absolute top-2 right-2', true)}
 
                         <div className="text-[10px] font-bold text-slate-450 uppercase select-none tracking-wide">Work Position #{expIdx + 1}</div>
                         
@@ -344,8 +464,12 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                 {sec.type === 'education' && (
                   <div className="space-y-4">
                     {sec.items.map((edu, eduIdx) => (
-                      <div key={edu.id} className="p-4 bg-slate-50 border border-slate-105 rounded-xl space-y-3 relative group/item animate-fade-in">
-                        {renderDeleteControl(sec.id, edu.id, 'absolute top-3.5 right-3.5')}
+                      <div
+                        key={edu.id}
+                        {...dropZoneProps(sec.id, eduIdx)}
+                        className={`p-4 pr-12 bg-slate-50 border rounded-xl space-y-3 relative group/item animate-fade-in transition-all ${isDragging(sec.id, eduIdx) ? 'opacity-40' : ''} ${isDragTarget(sec.id, eduIdx) ? 'border-violet-300 ring-2 ring-violet-200' : 'border-slate-105'}`}
+                      >
+                        {renderItemControls(sec.id, sec.items, eduIdx, 'absolute top-2 right-2', true)}
 
                         <div className="text-[10px] font-bold text-slate-450 uppercase select-none tracking-wide">Academic Degree #{eduIdx + 1}</div>
 
@@ -444,9 +568,38 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                 {sec.type === 'skills' && (
                   <div className="space-y-3">
                     {sec.items.length > 0 && (
+                      <div className="flex items-center justify-between gap-2 p-2 bg-violet-50/50 border border-violet-100 rounded-xl">
+                        <span className="text-[10px] font-bold text-violet-700 uppercase tracking-wide flex items-center gap-1.5">
+                          <Layers size={12} /> Set level for all {sec.items.length} skills
+                        </span>
+                        <select
+                          defaultValue=""
+                          onChange={(e) => {
+                            if (!e.target.value) return;
+                            store.bulkSetSkillLevel(sec.id, e.target.value === '__none' ? '' : e.target.value);
+                            onUpdate();
+                            e.target.value = '';
+                          }}
+                          className="text-xxs bg-white border border-violet-200 rounded-lg py-1.5 px-2 outline-hidden font-bold text-violet-700 cursor-pointer focus:ring-1 focus:ring-violet-300"
+                          title="Apply one level to every skill"
+                        >
+                          <option value="">Bulk set…</option>
+                          <option value="__none">No Level</option>
+                          <option value="Beginner">Beginner</option>
+                          <option value="Intermediate">Intermediate</option>
+                          <option value="Advanced">Advanced</option>
+                          <option value="Expert">Expert</option>
+                        </select>
+                      </div>
+                    )}
+                    {sec.items.length > 0 && (
                       <div className="grid grid-cols-1 gap-2 pb-2">
-                        {sec.items.map((sk) => (
-                          <div key={sk.id} className="p-1.5 bg-slate-50 border border-slate-100 rounded-xl flex items-center gap-2 animate-fade-in hover:border-slate-205 transition-all shadow-xxxxs">
+                        {sec.items.map((sk, skIdx) => (
+                          <div
+                            key={sk.id}
+                            {...dropZoneProps(sec.id, skIdx)}
+                            className={`p-1.5 bg-slate-50 border rounded-xl flex items-center gap-2 animate-fade-in transition-all shadow-xxxxs ${isDragging(sec.id, skIdx) ? 'opacity-40' : ''} ${isDragTarget(sec.id, skIdx) ? 'border-violet-300 ring-2 ring-violet-200' : 'border-slate-100 hover:border-slate-205'}`}
+                          >
                             <input
                               type="text"
                               placeholder="Skill spec (e.g. React)"
@@ -465,7 +618,7 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                               <option value="Advanced">Advanced</option>
                               <option value="Expert">Expert</option>
                             </select>
-                            {renderDeleteControl(sec.id, sk.id, 'shrink-0')}
+                            {renderItemControls(sec.id, sec.items, skIdx, 'shrink-0')}
                           </div>
                         ))}
                       </div>
@@ -485,9 +638,13 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                 {/* CASE F: Projects List entries */}
                 {sec.type === 'projects' && (
                   <div className="space-y-3">
-                    {sec.items.map((proj) => (
-                      <div key={proj.id} className="p-4 bg-slate-50 border rounded-xl space-y-3 relative animate-fade-in pr-10">
-                        {renderDeleteControl(sec.id, proj.id, 'absolute top-4 right-4')}
+                    {sec.items.map((proj, projIdx) => (
+                      <div
+                        key={proj.id}
+                        {...dropZoneProps(sec.id, projIdx)}
+                        className={`p-4 bg-slate-50 border rounded-xl space-y-3 relative animate-fade-in pr-12 transition-all ${isDragging(sec.id, projIdx) ? 'opacity-40' : ''} ${isDragTarget(sec.id, projIdx) ? 'border-violet-300 ring-2 ring-violet-200' : ''}`}
+                      >
+                        {renderItemControls(sec.id, sec.items, projIdx, 'absolute top-2 right-2', true)}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div className="space-y-1">
                             <label className="text-xxxxs font-bold text-slate-500 uppercase">Project Title</label>
@@ -581,8 +738,12 @@ export default function ResumeForm({ resume, onUpdate }: ResumeFormProps) {
                 {['certifications', 'awards', 'languages', 'volunteer', 'publications', 'references', 'custom'].includes(sec.type) && (
                   <div className="space-y-3">
                     {sec.items.map((item, itemIdx) => (
-                      <div key={item.id} className="p-4 bg-slate-50 border rounded-xl relative space-y-3 pr-10 animate-fade-in border-slate-105">
-                        {renderDeleteControl(sec.id, item.id, 'absolute top-4 right-4')}
+                      <div
+                        key={item.id}
+                        {...dropZoneProps(sec.id, itemIdx)}
+                        className={`p-4 bg-slate-50 border rounded-xl relative space-y-3 pr-12 animate-fade-in transition-all ${isDragging(sec.id, itemIdx) ? 'opacity-40' : ''} ${isDragTarget(sec.id, itemIdx) ? 'border-violet-300 ring-2 ring-violet-200' : 'border-slate-105'}`}
+                      >
+                        {renderItemControls(sec.id, sec.items, itemIdx, 'absolute top-2 right-2', true)}
 
                         <span className="text-[9px] font-bold text-slate-400 uppercase font-mono tracking-widest leading-none">Record #{itemIdx+1}</span>
 

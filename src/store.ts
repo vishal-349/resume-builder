@@ -831,14 +831,20 @@ export class ResumeStoreManager {
     active.sections.forEach((sec) => {
       if (sec.layout) sectionLayouts[sec.type] = { ...sec.layout };
     });
+    const finalName = name.trim() || `My Template ${this.state.customTemplates.length + 1}`;
+    // Dedupe by name: re-saving / re-importing a same-named design updates the
+    // existing preset in place rather than piling up duplicates.
+    const existing = this.state.customTemplates.find((t) => t.name.toLowerCase() === finalName.toLowerCase());
     const template: CustomTemplate = {
-      id: `tpl-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-      name: name.trim() || `My Template ${this.state.customTemplates.length + 1}`,
-      createdAt: new Date().toISOString(),
+      id: existing ? existing.id : `tpl-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      name: finalName,
+      createdAt: existing ? existing.createdAt : new Date().toISOString(),
       styles: { ...active.styles },
       sectionLayouts,
     };
-    this.state.customTemplates = [...this.state.customTemplates, template];
+    this.state.customTemplates = existing
+      ? this.state.customTemplates.map((t) => (t.id === existing.id ? template : t))
+      : [...this.state.customTemplates, template];
     this.emit();
     return template;
   }
@@ -1034,6 +1040,126 @@ export class ResumeStoreManager {
     });
   }
 
+  /** Reorder a single item within its section (swap with its neighbour). */
+  public moveSectionItem(sectionId: string, itemId: string, direction: 'up' | 'down') {
+    this.updateActiveResume((resume) => {
+      const sections = resume.sections.map((sec) => {
+        if (sec.id !== sectionId) return sec;
+        const idx = sec.items.findIndex((it) => it.id === itemId);
+        if (idx === -1) return sec;
+        const target = direction === 'up' ? idx - 1 : idx + 1;
+        if (target < 0 || target >= sec.items.length) return sec;
+        const items = [...sec.items];
+        [items[idx], items[target]] = [items[target], items[idx]];
+        return { ...sec, items };
+      });
+      return { ...resume, sections };
+    });
+  }
+
+  /** Move an item from one position to another within its section (drag & drop). */
+  public reorderSectionItems(sectionId: string, fromIndex: number, toIndex: number) {
+    this.updateActiveResume((resume) => {
+      const sections = resume.sections.map((sec) => {
+        if (sec.id !== sectionId) return sec;
+        const n = sec.items.length;
+        if (fromIndex < 0 || fromIndex >= n || toIndex < 0 || toIndex >= n || fromIndex === toIndex) return sec;
+        const items = [...sec.items];
+        const [moved] = items.splice(fromIndex, 1);
+        items.splice(toIndex, 0, moved);
+        return { ...sec, items };
+      });
+      return { ...resume, sections };
+    });
+  }
+
+  /** Apply many field corrections at once (one history entry) — used by the writing assistant. */
+  public applyFieldUpdates(updates: { sectionId: string; itemId: string; field: string; value: string }[]) {
+    if (!updates.length) return;
+    this.updateActiveResume((resume) => {
+      const sections = resume.sections.map((sec) => {
+        const ups = updates.filter((u) => u.sectionId === sec.id);
+        if (!ups.length) return sec;
+        if (sec.type === 'summary') return { ...sec, items: [ups[0].value] };
+        const items = sec.items.map((it) => {
+          const u = ups.find((x) => x.itemId === it.id);
+          return u ? { ...it, [u.field]: u.value } : it;
+        });
+        return { ...sec, items };
+      });
+      return { ...resume, sections };
+    });
+  }
+
+  /** Set the same level value on every skill in a section (bulk update). */
+  public bulkSetSkillLevel(sectionId: string, level: string) {
+    this.updateActiveResume((resume) => {
+      const sections = resume.sections.map((sec) =>
+        sec.id === sectionId ? { ...sec, items: sec.items.map((it) => ({ ...it, level })) } : sec
+      );
+      return { ...resume, sections };
+    });
+  }
+
+  /**
+   * Find & replace across text fields. Scope is the whole resume or a single
+   * section; `field` optionally restricts it to one field key (e.g. only
+   * "description"). Returns the number of replacements made (0 = no change, no
+   * history entry). Never touches non-string fields, ids, or layout.
+   */
+  public findReplace(params: {
+    sectionId?: string;        // restrict to one section; omit for whole resume
+    field?: string;            // restrict to one field key
+    find: string;
+    replace: string;
+    caseSensitive?: boolean;
+    wholeWord?: boolean;
+  }): number {
+    const { sectionId, field, find, replace, caseSensitive, wholeWord } = params;
+    if (!find) return 0;
+    const esc = find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = wholeWord ? `\\b${esc}\\b` : esc;
+    let re: RegExp;
+    try { re = new RegExp(pattern, caseSensitive ? 'g' : 'gi'); } catch { return 0; }
+
+    let count = 0;
+    const replaceIn = (val: string): string => {
+      const matches = val.match(re);
+      if (matches) count += matches.length;
+      re.lastIndex = 0;
+      return val.replace(re, replace);
+    };
+
+    this.updateActiveResume((resume) => {
+      const sections = resume.sections.map((sec) => {
+        if (sectionId && sec.id !== sectionId) return sec;
+        if (sec.type === 'personal') return sec; // contact fields are edited directly
+        if (sec.type === 'summary') {
+          // summary items are raw strings
+          const items = sec.items.map((it) =>
+            typeof it === 'string' && (!field || field === 'summary') ? replaceIn(it) : it
+          );
+          return { ...sec, items };
+        }
+        const items = sec.items.map((it) => {
+          if (!it || typeof it !== 'object') return it;
+          const next: any = { ...it };
+          for (const key of Object.keys(next)) {
+            if (key === 'id') continue;
+            if (field && key !== field) continue;
+            if (typeof next[key] === 'string') next[key] = replaceIn(next[key]);
+          }
+          return next;
+        });
+        return { ...sec, items };
+      });
+      return { ...resume, sections };
+    });
+    // updateActiveResume already pushed history + persisted; that's fine even if
+    // count is 0 (a no-op map), but callers gate on the returned count.
+    return count;
+  }
+
   public restoreBackup(resumesData: Resume[], activeId: string | null) {
     this.pushToHistory();
     this.state.resumes = resumesData;
@@ -1043,8 +1169,19 @@ export class ResumeStoreManager {
 
   public addImportedResume(resume: Resume) {
     this.pushToHistory();
-    this.state.resumes.push(resume);
-    this.state.activeResumeId = resume.id;
+    // Re-importing the same resume (same title) replaces that entry in place
+    // instead of piling up duplicate copies. Other resumes are untouched.
+    const existing = this.state.resumes.find(
+      (r) => r.title.trim().toLowerCase() === resume.title.trim().toLowerCase()
+    );
+    if (existing) {
+      const merged = { ...resume, id: existing.id };
+      this.state.resumes = this.state.resumes.map((r) => (r.id === existing.id ? merged : r));
+      this.state.activeResumeId = existing.id;
+    } else {
+      this.state.resumes.push(resume);
+      this.state.activeResumeId = resume.id;
+    }
     this.emit();
   }
 

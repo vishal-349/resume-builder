@@ -404,7 +404,7 @@ export default function SectionManager({ resume, onUpdate }: SectionManagerProps
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Skills Style</span>
                         <div className="flex items-center gap-1">
-                          {(['chips', 'list', 'inline'] as const).map((v) => {
+                          {(['chips', 'list', 'numbered', 'inline'] as const).map((v) => {
                             const current = sec.layout?.skillStyle || 'chips';
                             return (
                               <button
@@ -415,7 +415,7 @@ export default function SectionManager({ resume, onUpdate }: SectionManagerProps
                                   current === v ? 'bg-violet-50 border-violet-300 text-violet-600' : 'border-slate-100 text-slate-500 hover:bg-slate-50'
                                 }`}
                               >
-                                {v === 'inline' ? 'Comma' : v === 'list' ? 'Bullets' : 'Chips'}
+                                {v === 'inline' ? 'Inline' : v === 'list' ? 'Bullets' : v === 'numbered' ? 'Numbered' : 'Chips'}
                               </button>
                             );
                           })}

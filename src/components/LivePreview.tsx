@@ -981,7 +981,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
   };
 
   // Per-section content alignment (falls back to left)
-  const sectionAlign = (sec: ResumeSection): 'left' | 'center' | 'right' | 'justify' => sec.layout?.align || 'left';
+  const sectionAlign = (sec?: ResumeSection): 'left' | 'center' | 'right' | 'justify' => sec?.layout?.align || 'left';
 
   const renderSectionHeader = (sec: ResumeSection) => {
     // A per-section alignment override wins; otherwise use the global heading alignment.
@@ -1242,7 +1242,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
         return sec ? <div key={block.key}>{renderSectionHeader(sec)}</div> : null;
       case 'summary':
         return (
-          <div key={block.key} className="py-0.5 select-text" style={{ textAlign: sectionAlign(sec!) }}>
+          <div key={block.key} className="py-0.5 select-text" style={{ textAlign: sectionAlign(sec) }}>
             <EditableText
               sectionId={block.sectionId!}
               fieldName="summary"
@@ -1257,7 +1257,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
       case 'skills-grid': {
         const skillStyle = sec?.layout?.skillStyle || 'chips';
         const cols = sec?.layout?.columns || 1;
-        const align = sectionAlign(sec!);
+        const align = sectionAlign(sec);
         const justify = align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start';
 
         // Comma-separated single line
@@ -1275,12 +1275,13 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
           );
         }
 
-        // Bulleted vertical list (optionally multi-column)
-        if (skillStyle === 'list') {
+        // Bulleted or numbered vertical list (optionally multi-column)
+        if (skillStyle === 'list' || skillStyle === 'numbered') {
+          const ListTag = skillStyle === 'numbered' ? 'ol' : 'ul';
           return (
-            <ul
+            <ListTag
               key={block.key}
-              className="mt-1 pb-1 select-text text-[10px] text-slate-700 leading-relaxed list-disc pl-4"
+              className={`mt-1 pb-1 select-text text-[10px] text-slate-700 leading-relaxed pl-4 ${skillStyle === 'numbered' ? 'list-decimal' : 'list-disc'}`}
               style={{ columns: cols > 1 ? cols : undefined, textAlign: align }}
             >
               {block.data.map((sk: any, idx: number) => (
@@ -1289,7 +1290,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
                   {sk.level && <span className="text-slate-400 font-normal"> (<EditableText sectionId={block.sectionId!} itemId={sk.id} fieldName="level" value={sk.level} placeholder="Level" />)</span>}
                 </li>
               ))}
-            </ul>
+            </ListTag>
           );
         }
 
@@ -1338,6 +1339,12 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
         return null;
     }
   };
+
+  // Reset pagination when switching resumes so we never render the previous
+  // resume's blocks (whose section ids don't exist in the new one) for a frame.
+  useLayoutEffect(() => {
+    setPages([]);
+  }, [resume.id]);
 
   // Re-calculate pages layout
   useLayoutEffect(() => {

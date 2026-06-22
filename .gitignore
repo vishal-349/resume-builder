@@ -7,3 +7,7 @@ coverage/
 .env*
 !.env.example
 .vercel
+
+# Personal résumé fixtures used only for local Smart-Import testing — kept out of
+# the public repo to avoid publishing personal contact details.
+sample-resume/
