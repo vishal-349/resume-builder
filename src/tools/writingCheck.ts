@@ -10,7 +10,7 @@
  * never flags valid technical terms (Selenium, Cypress, JMeter, …) as errors.
  */
 
-export type IssueType = 'spelling' | 'capitalization' | 'spacing' | 'repeat' | 'punctuation';
+export type IssueType = 'spelling' | 'capitalization' | 'spacing' | 'repeat' | 'punctuation' | 'grammar' | 'style';
 
 export interface WritingIssue {
   type: IssueType;
@@ -54,6 +54,7 @@ export const MISSPELLINGS: Record<string, string> = {
   succesfull: 'successful', tommorow: 'tomorrow', truely: 'truly', untill: 'until', usefull: 'useful',
   wich: 'which', writeing: 'writing', analyse: 'analyze', optimisation: 'optimization',
   utilise: 'utilize', utilised: 'utilized', behaviour: 'behavior', catalogue: 'catalog',
+  optimze: 'optimize', optimzed: 'optimized', optmize: 'optimize', mantain: 'maintain',
   thier: 'their', wnat: 'want', thru: 'through', alot: 'a lot', cant: "can't", dont: "don't",
   doesnt: "doesn't", wont: "won't", isnt: "isn't", wasnt: "wasn't", couldnt: "couldn't",
   shouldnt: "shouldn't", wouldnt: "wouldn't", didnt: "didn't", ive: "I've", im: "I'm",
@@ -70,11 +71,16 @@ function matchCase(original: string, replacement: string): string {
   return replacement;
 }
 
+/**
+ * Offline fallback writing check (curated common-misspellings + heuristics). The
+ * primary checker is the online LanguageTool service (see tools/languageTool); this
+ * runs only when that's unreachable, so it stays conservative to avoid false flags.
+ */
 export function checkWriting(input: string): WritingReport {
   const text = input || '';
   const issues: WritingIssue[] = [];
 
-  // 1. Misspellings (word by word, casing preserved).
+  // 1. Misspellings (curated common-typo list; casing preserved) + lone "i".
   const wordRe = /[A-Za-z][A-Za-z']*/g;
   let m: RegExpExecArray | null;
   while ((m = wordRe.exec(text)) !== null) {
@@ -147,7 +153,10 @@ export function checkWriting(input: string): WritingReport {
 
   // ----- Build the fully-corrected text (order matters) -----
   let corrected = text
-    .replace(wordRe, (w) => (MISSPELLINGS[w.toLowerCase()] ? matchCase(w, MISSPELLINGS[w.toLowerCase()]) : w))
+    .replace(wordRe, (w) => {
+      const lw = w.toLowerCase();
+      return MISSPELLINGS[lw] ? matchCase(w, MISSPELLINGS[lw]) : w;
+    })
     .replace(/\bi\b/g, 'I')
     .replace(/\b(\w+)(\s+)(\1)\b/gi, '$1')
     .replace(/([!?])\1{1,}/g, '$1')
