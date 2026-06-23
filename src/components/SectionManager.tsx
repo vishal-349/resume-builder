@@ -446,6 +446,30 @@ export default function SectionManager({ resume, onUpdate }: SectionManagerProps
                         </div>
                       </div>
                     )}
+
+                    {/* Item spacing — fine-grained gap between this section's entries */}
+                    {!isPersonal && sec.type !== 'summary' && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide shrink-0">Item Spacing</span>
+                        <div className="flex items-center gap-2 flex-1 max-w-[160px]">
+                          {(() => { const val = typeof sec.layout?.itemSpacing === 'number' ? sec.layout!.itemSpacing : 25; return (
+                            <>
+                              <input
+                                type="range"
+                                min={0}
+                                max={100}
+                                step={5}
+                                value={val}
+                                onChange={(e) => setLayout(sec.id, { itemSpacing: Number(e.target.value) })}
+                                className="flex-1 accent-violet-600 cursor-pointer"
+                                title="Drag to tighten or loosen the gap between items (0 = flush)"
+                              />
+                              <span className="text-[10px] font-bold text-violet-600 font-mono w-8 text-right">{val}</span>
+                            </>
+                          ); })()}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { Resume, LanguageCode } from '../types';
 import { store } from '../store';
-import { PlusCircle, Copy, Trash2, Edit3, Check, X, Calendar, FileText, Globe, AlertCircle } from 'lucide-react';
+import { PlusCircle, Copy, Trash2, Edit3, Check, X, Calendar, FileText, Globe, AlertCircle, Star } from 'lucide-react';
 
 interface ResumeHistoryProps {
   resumes: Resume[];
@@ -55,6 +55,12 @@ export default function ResumeHistory({ resumes, activeId, onSelect, onUpdate }:
   const duplicateResume = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     store.duplicateResume(id);
+    onUpdate();
+  };
+
+  const togglePerfect = (r: Resume, e: React.MouseEvent) => {
+    e.stopPropagation();
+    store.setPerfect(r.id, !r.perfect);
     onUpdate();
   };
 
@@ -129,6 +135,8 @@ export default function ResumeHistory({ resumes, activeId, onSelect, onUpdate }:
               className={`p-3.5 rounded-xl border transition-all relative flex flex-col gap-1.5 cursor-pointer ${
                 isActive
                   ? 'border-violet-300 bg-violet-50 ring-2 ring-violet-100 shadow-xxs'
+                  : res.perfect
+                  ? 'border-amber-200 bg-amber-50/40 hover:border-amber-300'
                   : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50/50'
               }`}
             >
@@ -172,6 +180,11 @@ export default function ResumeHistory({ resumes, activeId, onSelect, onUpdate }:
                       <span className="text-xxxxs uppercase font-bold px-1 py-0.5 rounded bg-blue-50 text-blue-500 font-mono">
                         {res.language}
                       </span>
+                      {res.perfect && (
+                        <span className="text-xxxxs uppercase font-bold px-1 py-0.5 rounded bg-amber-100 text-amber-700 font-mono flex items-center gap-0.5 shrink-0">
+                          <Star size={9} className="fill-amber-500 text-amber-500" /> Perfect
+                        </span>
+                      )}
                     </div>
                   )}
                   
@@ -209,6 +222,13 @@ export default function ResumeHistory({ resumes, activeId, onSelect, onUpdate }:
                   ) : (
                     <div className="flex items-center gap-0.5">
                       <button
+                        onClick={(e) => togglePerfect(res, e)}
+                        title={res.perfect ? 'Unmark as Perfect (master version)' : 'Mark as Perfect (master version)'}
+                        className={`p-1 rounded-md transition-all cursor-pointer ${res.perfect ? 'text-amber-500 hover:bg-amber-50' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}`}
+                      >
+                        <Star size={12} className={res.perfect ? 'fill-amber-400' : ''} />
+                      </button>
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
                           startRename(res);
@@ -220,8 +240,8 @@ export default function ResumeHistory({ resumes, activeId, onSelect, onUpdate }:
                       </button>
                       <button
                         onClick={(e) => duplicateResume(res.id, e)}
-                        title="Clone Document"
-                        className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-all cursor-pointer"
+                        title="Duplicate — make an independent editable copy"
+                        className="p-1 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-md transition-all cursor-pointer"
                       >
                         <Copy size={12} />
                       </button>

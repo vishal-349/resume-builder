@@ -732,6 +732,31 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
     paddingClass = 'p-10';
   }
 
+  // Per-block vertical gap. Section headings get the full section gap; consecutive
+  // items of the same section get a (per-section configurable) item gap, so e.g. a
+  // hobbies list can be tightened independently of the spacing between sections.
+  const sectionGapPx = styles.spacing === 'compact' ? 8 : styles.spacing === 'relaxed' ? 20 : 14;
+  const baseItemGapPx = styles.spacing === 'compact' ? 2 : styles.spacing === 'relaxed' ? 12 : 6;
+  const itemGapFor = (sectionId?: string): number => {
+    const sec = sectionId ? resume.sections.find((s) => s.id === sectionId) : undefined;
+    const sp = sec?.layout?.itemSpacing;
+    // 0–100 slider → 0–26px. Undefined = the global default item gap.
+    return typeof sp === 'number' ? Math.round((sp / 100) * 26) : baseItemGapPx;
+  };
+  const blockGap = (block: RenderBlock, prev?: RenderBlock): number => {
+    if (!prev) return 0;
+    if (block.type === 'section-heading' || block.type === 'header') return sectionGapPx;
+    if (prev.type === 'section-heading') return 3;
+    if (prev.sectionId && block.sectionId && prev.sectionId === block.sectionId) return itemGapFor(block.sectionId);
+    return sectionGapPx;
+  };
+  const renderBlockList = (blocks: RenderBlock[]) =>
+    blocks.map((b, i) => (
+      <div key={b.key} data-block-id={b.key} style={i === 0 ? undefined : { marginTop: blockGap(b, blocks[i - 1]) }}>
+        {renderBlockContent(b)}
+      </div>
+    ));
+
   // Divider styling
   let borderBottomClass = 'border-b';
   if (styles.dividerStyle === 'none') borderBottomClass = '';
@@ -767,6 +792,9 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
 
   // Description bullet formatting
   const renderDescription = (sectionId: string, itemId: string, textVal: string) => {
+    // Don't render an empty description block — it would add a stray gap under
+    // bullet-free items (e.g. hobbies). Add descriptions via the form instead.
+    if (!textVal || !textVal.trim()) return null;
     return (
       <div className="mt-1 text-slate-600 border-l border-slate-100/60 pl-2 whitespace-pre-line text-left" style={{ lineHeight: lineHeightValue }}>
         <EditableText
@@ -1275,22 +1303,26 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
           );
         }
 
-        // Bulleted or numbered vertical list (optionally multi-column)
+        // Bulleted or numbered vertical list (optionally multi-column). Markers are
+        // explicit spans (not CSS list markers) so they never get clipped at the top
+        // of a CSS-column — which was dropping the bullet on the first item per column.
         if (skillStyle === 'list' || skillStyle === 'numbered') {
-          const ListTag = skillStyle === 'numbered' ? 'ol' : 'ul';
           return (
-            <ListTag
+            <div
               key={block.key}
-              className={`mt-1 pb-1 select-text text-[10px] text-slate-700 leading-relaxed pl-4 ${skillStyle === 'numbered' ? 'list-decimal' : 'list-disc'}`}
-              style={{ columns: cols > 1 ? cols : undefined, textAlign: align }}
+              className="mt-1 pb-1 select-text text-[10px] text-slate-700 leading-relaxed"
+              style={{ columns: cols > 1 ? (cols as any) : undefined, textAlign: align }}
             >
               {block.data.map((sk: any, idx: number) => (
-                <li key={sk.id || idx} className="ml-1">
-                  <EditableText sectionId={block.sectionId!} itemId={sk.id} fieldName="name" value={sk.name} placeholder="Skill" />
-                  {sk.level && <span className="text-slate-400 font-normal"> (<EditableText sectionId={block.sectionId!} itemId={sk.id} fieldName="level" value={sk.level} placeholder="Level" />)</span>}
-                </li>
+                <div key={sk.id || idx} className="flex gap-1.5" style={{ breakInside: 'avoid' }}>
+                  <span className="select-none shrink-0" style={{ color: primaryColor }}>{skillStyle === 'numbered' ? `${idx + 1}.` : '•'}</span>
+                  <span>
+                    <EditableText sectionId={block.sectionId!} itemId={sk.id} fieldName="name" value={sk.name} placeholder="Skill" />
+                    {sk.level && <span className="text-slate-400 font-normal"> (<EditableText sectionId={block.sectionId!} itemId={sk.id} fieldName="level" value={sk.level} placeholder="Level" />)</span>}
+                  </span>
+                </div>
               ))}
-            </ListTag>
+            </div>
           );
         }
 
@@ -1630,13 +1662,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
             </div>
           </div>
         ) : (
-          <div className={sectionSpacingClass}>
-            {rawList.map((block) => (
-              <div key={block.key} data-block-id={block.key}>
-                {renderBlockContent(block)}
-              </div>
-            ))}
-          </div>
+          <div>{renderBlockList(rawList)}</div>
         )}
       </div>
 
@@ -1694,9 +1720,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
                     </div>
                   </div>
                 ) : (
-                  <div className={sectionSpacingClass}>
-                    {pageBlocks.map(b => renderBlockContent(b))}
-                  </div>
+                  <div>{renderBlockList(pageBlocks)}</div>
                 )}
               </div>
 
@@ -1741,9 +1765,7 @@ export const LivePreview = forwardRef<HTMLDivElement, LivePreviewProps>(({ resum
                     </div>
                   </div>
                 ) : (
-                  <div className={sectionSpacingClass}>
-                    {pageBlocks.map(b => renderBlockContent(b))}
-                  </div>
+                  <div>{renderBlockList(pageBlocks)}</div>
                 )}
               </div>
 

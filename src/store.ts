@@ -418,13 +418,30 @@ export class ResumeStoreManager {
     const source = this.state.resumes.find((r) => r.id === id);
     if (!source) return;
 
+    // Deep clone so the copy shares NO references with the original — editing one
+    // never affects the other. Fresh ids everywhere (resume, sections, items) too.
+    const rnd = () => Math.random().toString(36).slice(2, 9);
     const copy: Resume = JSON.parse(JSON.stringify(source));
-    copy.id = `resume-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    copy.title = `${source.title} (Copy)`;
+    copy.id = `resume-${Date.now()}-${rnd()}`;
+    copy.title = `${source.title.replace(/\s*\(Copy.*\)$/, '')} (Copy)`;
     copy.updatedAt = new Date().toISOString();
+    copy.perfect = false; // a copy is a working draft, never inherits "master" status
+    copy.sections = copy.sections.map((sec, si) => ({
+      ...sec,
+      id: sec.type === 'personal' ? 'personal' : `${sec.type}-${Date.now().toString(36)}-${si}-${rnd()}`,
+      items: Array.isArray(sec.items)
+        ? sec.items.map((it) => (it && typeof it === 'object' && 'id' in it ? { ...it, id: `item-${Date.now().toString(36)}-${rnd()}` } : it))
+        : sec.items,
+    }));
 
     this.state.resumes.push(copy);
     this.state.activeResumeId = copy.id;
+    this.emit();
+  }
+
+  /** Mark / unmark a resume as the "Perfect" master version. */
+  public setPerfect(id: string, value: boolean) {
+    this.state.resumes = this.state.resumes.map((r) => (r.id === id ? { ...r, perfect: value } : r));
     this.emit();
   }
 

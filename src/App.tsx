@@ -9,7 +9,7 @@ import { store, loadInitialState, DEFAULT_STYLES } from './store';
 import { TEMPLATE_DEFINITIONS, COLOR_PRESETS } from './templates';
 import { analyzeResumeATS } from './atsChecker';
 import { saveAsDocx, saveAsTxt } from './docxExport';
-import { readDocument, linesFromText } from './import/readDocument';
+import { readDocument, linesFromText, DocStyle } from './import/readDocument';
 import { analyzeResume, ParsedResume } from './import/analyzeResume';
 import { buildImportedResume } from './import/buildImportedResume';
 import { TRANSLATIONS } from './translations';
@@ -68,6 +68,7 @@ export default function App() {
   const [showImportDialog, setShowImportDialog] = useState(false);
   // Smart Import: the analyzed resume awaiting user confirmation in the preview.
   const [importPreview, setImportPreview] = useState<ParsedResume | null>(null);
+  const [importStyle, setImportStyle] = useState<DocStyle | undefined>(undefined);
   const [showPasteField, setShowPasteField] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [successToast, setSuccessToast] = useState('');
@@ -119,7 +120,8 @@ export default function App() {
     setIsImportLoading(true);
     setSuccessToast(`Reading "${file.name}"...`);
     try {
-      const { lines } = await readDocument(file);
+      const { lines, style } = await readDocument(file);
+      setImportStyle(style);
       setSuccessToast('Detecting sections & extracting data...');
       const parsed = analyzeResume(lines);
       // Default the resume name to the file name if no person name was found.
@@ -141,6 +143,7 @@ export default function App() {
     setIsImportLoading(true);
     try {
       setSuccessToast('Detecting sections & extracting data...');
+      setImportStyle(undefined);
       const parsed = analyzeResume(linesFromText(rawPastedText));
       setShowImportDialog(false);
       setRawPastedText('');
@@ -156,7 +159,7 @@ export default function App() {
   // Build the editable resume + auto-create a reusable custom template.
   const handleConfirmImport = (finalParsed: ParsedResume) => {
     try {
-      const resume = buildImportedResume(finalParsed, activeResume?.language || 'en');
+      const resume = buildImportedResume(finalParsed, activeResume?.language || 'en', importStyle);
       store.addImportedResume(resume);
       // Register a reusable preset named after the candidate and link the resume
       // to it (so it shows as the active design). Dedupes by name on re-import.

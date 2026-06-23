@@ -9,6 +9,7 @@
 import { Resume, ResumeSection, SectionType, LanguageCode } from '../types';
 import { DEFAULT_STYLES } from '../store';
 import { ParsedResume } from './analyzeResume';
+import type { DocStyle } from './readDocument';
 
 const uid = (p: string) => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
@@ -27,7 +28,7 @@ const DEFAULT_NAMES: Record<string, string> = {
   custom: 'Custom Section',
 };
 
-export function buildImportedResume(parsed: ParsedResume, lang: LanguageCode = 'en'): Resume {
+export function buildImportedResume(parsed: ParsedResume, lang: LanguageCode = 'en', docStyle?: DocStyle): Resume {
   const c = parsed.contact;
   const sections: ResumeSection[] = [];
 
@@ -69,13 +70,20 @@ export function buildImportedResume(parsed: ParsedResume, lang: LanguageCode = '
     sections.push({ id, type: s.type as SectionType, name, visible: true, items, ...(s.layout ? { layout: s.layout } : {}) });
   });
 
+  // Apply the captured look (accent colour, text colour, font) so the rebuilt
+  // résumé visually resembles the uploaded PDF rather than the generic default.
+  const styles = { ...DEFAULT_STYLES };
+  if (docStyle?.primaryColor) styles.primaryColor = docStyle.primaryColor;
+  if (docStyle?.textColor) styles.textColor = docStyle.textColor;
+  if (docStyle?.fontFamily) styles.fontFamily = docStyle.fontFamily;
+
   return {
     id: uid('resume'),
     title: parsed.resumeName || 'Imported Resume',
     updatedAt: new Date().toISOString(),
     language: lang,
     templateId: 'imported',
-    styles: { ...DEFAULT_STYLES },
+    styles,
     sections,
   };
 }

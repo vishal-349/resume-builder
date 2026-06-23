@@ -27,42 +27,150 @@ export interface DocLine {
   headingHint: boolean;
 }
 
+/** Visual styling captured from the source document, applied on reconstruction. */
+export interface DocStyle {
+  primaryColor?: string;   // accent / heading colour
+  textColor?: string;      // body text colour
+  fontFamily?: 'sans' | 'serif' | 'mono';
+}
+
 export interface ReadResult {
   lines: DocLine[];
   /** 'pdf' | 'docx' — useful for messaging. */
   kind: string;
+  /** Captured look of the source (PDF only). */
+  style?: DocStyle;
 }
 
 /* ------------------------------------------------------------------ */
 /* PDF                                                                 */
 /* ------------------------------------------------------------------ */
 
-async function readPdf(file: File): Promise<DocLine[]> {
+const toHex = (r: number, g: number, b: number) =>
+  '#' + [r, g, b].map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+const saturation = (r: number, g: number, b: number) => { const mx = Math.max(r, g, b), mn = Math.min(r, g, b); return mx === 0 ? 0 : (mx - mn) / mx; };
+const luminance = (r: number, g: number, b: number) => 0.299 * r + 0.587 * g + 0.114 * b;
+
+/** Tally serif / sans / mono usage from a page's font styles. */
+function tallyFonts(styles: Record<string, any>, votes: { serif: number; sans: number; mono: number }) {
+  for (const k in styles) {
+    const f = String(styles[k]?.fontFamily || '').toLowerCase();
+    if (!f) continue;
+    if (/mono|courier|consol/.test(f)) votes.mono++;
+    else if (/serif|times|georgia|garamond|cambria|minion|book antiqua|palatino/.test(f) && !/sans/.test(f)) votes.serif++;
+    else votes.sans++;
+  }
+}
+
+/**
+ * Render a page and sample the ink colour inside each text item's box. Returns the
+ * dominant body text colour and the dominant accent (colourful) colour — i.e. the
+ * résumé's real palette. Best-effort; returns {} if rendering isn't available.
+ */
+async function sampleColors(page: any, items: PdfItem[]): Promise<{ accent?: string; text?: string }> {
+  try {
+    if (typeof document === 'undefined') return {};
+    const viewport = page.getViewport({ scale: 2 });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    const ctx = canvas.getContext('2d', { willReadFrequently: true } as any) as CanvasRenderingContext2D;
+    if (!ctx) return {};
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    const W = canvas.width, H = canvas.height;
+    const data = ctx.getImageData(0, 0, W, H).data;
+    const buckets = new Map<string, { w: number; r: number; g: number; b: number }>();
+
+    for (const it of items) {
+      const s = it.str.trim();
+      if (!s) continue;
+      const [ax, ay] = viewport.convertToViewportPoint(it.x, it.y);
+      const [bx, by] = viewport.convertToViewportPoint(it.x + it.w, it.y + it.size);
+      const x0 = Math.max(0, Math.floor(Math.min(ax, bx)));
+      const x1 = Math.min(W - 1, Math.ceil(Math.max(ax, bx)));
+      const y0 = Math.max(0, Math.floor(Math.min(ay, by)));
+      const y1 = Math.min(H - 1, Math.ceil(Math.max(ay, by)));
+      if (x1 <= x0 || y1 <= y0) continue;
+      // Darkest ink pixel in the glyph box ≈ the text's true colour.
+      let br = 0, bg = 0, bb = 0, bl = 256, found = false;
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          const i = (y * W + x) * 4;
+          if (data[i + 3] < 128) continue;
+          const r = data[i], g = data[i + 1], b = data[i + 2];
+          const L = luminance(r, g, b);
+          if (L > 225) continue; // background / near-white
+          if (L < bl) { bl = L; br = r; bg = g; bb = b; found = true; }
+        }
+      }
+      if (!found) continue;
+      const key = `${br >> 4}_${bg >> 4}_${bb >> 4}`;
+      const e = buckets.get(key) || { w: 0, r: br, g: bg, b: bb };
+      e.w += s.length;
+      buckets.set(key, e);
+    }
+
+    const arr = [...buckets.values()];
+    if (!arr.length) return {};
+    const neutralDark = arr.filter((e) => saturation(e.r, e.g, e.b) < 0.25 && luminance(e.r, e.g, e.b) < 150).sort((a, b) => b.w - a.w);
+    const colorful = arr.filter((e) => saturation(e.r, e.g, e.b) >= 0.3 && luminance(e.r, e.g, e.b) > 25 && luminance(e.r, e.g, e.b) < 225).sort((a, b) => b.w - a.w);
+    return {
+      text: neutralDark[0] ? toHex(neutralDark[0].r, neutralDark[0].g, neutralDark[0].b) : undefined,
+      accent: colorful[0] ? toHex(colorful[0].r, colorful[0].g, colorful[0].b) : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+async function readPdf(file: File): Promise<{ lines: DocLine[]; style: DocStyle }> {
   const buf = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
   const out: PdfLine[] = [];
+  const fontVotes = { serif: 0, sans: 0, mono: 0 };
+  let palette: { accent?: string; text?: string } = {};
+
   for (let p = 1; p <= pdf.numPages; p++) {
     const page = await pdf.getPage(p);
+    // Resolve fonts so we can read their names (for bold detection).
+    try { await page.getOperatorList(); } catch { /* non-fatal */ }
     const content = await page.getTextContent();
+    tallyFonts((content as any).styles || {}, fontVotes);
+    const boldCache = new Map<string, boolean>();
+    const isBold = (fontName?: string): boolean => {
+      if (!fontName) return false;
+      if (boldCache.has(fontName)) return boldCache.get(fontName)!;
+      let b = false;
+      try { const f: any = (page as any).commonObjs.get(fontName); b = /bold|black|heavy|semibold|demibold/i.test(f?.name || ''); } catch { /* unresolved */ }
+      boldCache.set(fontName, b);
+      return b;
+    };
     const items: PdfItem[] = (content.items as any[])
       .filter((it) => typeof it.str === 'string')
       .map((it) => {
         const tr = it.transform || [1, 0, 0, 1, 0, 0];
         const size = it.height || Math.hypot(tr[2], tr[3]) || 0;
-        return { str: it.str, x: tr[4], y: tr[5], w: it.width || it.str.length * 5, size };
+        return { str: it.str, x: tr[4], y: tr[5], w: it.width || it.str.length * 5, size, bold: isBold(it.fontName) };
       });
+    // Colour palette is sampled from the first page that carries the header/accent.
+    if (p === 1) palette = await sampleColors(page, items);
     out.push(...pageToLines(items));
   }
   if (out.length === 0) {
     throw new Error('No readable text found in the PDF. It may be scanned/image-only.');
   }
-  return out.map((l) => ({
-    text: l.text,
-    size: l.size,
-    bold: false,
-    bullet: l.bullet,
-    headingHint: l.heading,
-  }));
+
+  const fontFamily: DocStyle['fontFamily'] =
+    fontVotes.mono > fontVotes.serif && fontVotes.mono > fontVotes.sans ? 'mono'
+    : fontVotes.serif > fontVotes.sans ? 'serif'
+    : 'sans';
+
+  return {
+    lines: out.map((l) => ({ text: l.text, size: l.size, bold: l.bold, bullet: l.bullet, headingHint: l.heading })),
+    style: { primaryColor: palette.accent, textColor: palette.text, fontFamily },
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -151,7 +259,8 @@ export function linesFromText(text: string): DocLine[] {
 export async function readDocument(file: File): Promise<ReadResult> {
   const ext = (file.name.split('.').pop() || '').toLowerCase();
   if (ext === 'pdf') {
-    return { lines: await readPdf(file), kind: 'pdf' };
+    const { lines, style } = await readPdf(file);
+    return { lines, kind: 'pdf', style };
   }
   if (ext === 'docx' || ext === 'doc') {
     try {

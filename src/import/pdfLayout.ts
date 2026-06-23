@@ -16,8 +16,15 @@ export function cleanText(s: string): string {
   return s.replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-export interface PdfItem { str: string; x: number; y: number; w: number; size: number; }
-export interface PdfLine { text: string; size: number; bullet: boolean; heading: boolean; }
+export interface PdfItem { str: string; x: number; y: number; w: number; size: number; bold?: boolean; }
+export interface PdfLine { text: string; size: number; bullet: boolean; heading: boolean; bold: boolean; }
+
+/** A line is "bold" when most of its characters are in a bold font. */
+function lineBold(items: PdfItem[]): boolean {
+  let bold = 0, total = 0;
+  for (const i of items) { const n = i.str.trim().length; total += n; if (i.bold) bold += n; }
+  return total > 0 && bold / total >= 0.6;
+}
 
 /** Group text items into visual rows (top-to-bottom, left-to-right within a row). */
 function rowsByY(items: PdfItem[]): { y: number; items: PdfItem[] }[] {
@@ -76,12 +83,13 @@ function contentLines(items: PdfItem[]): PdfLine[] {
       if (!text) return;
       const size = Math.round(Math.max(...r.items.map((i) => i.size)) || 0);
       const bullet = BULLET_RE.test(text);
+      const bold = lineBold(r.items);
       // In a two-column list, a non-bullet row that follows an unfinished line is a
       // soft-wrap continuation of it (so a wrapped list item is rejoined).
       if (gutter > 0 && !bullet && prev && !/[.!?:]$/.test(prev.text)) {
         prev.text = cleanText(`${prev.text} ${text}`);
       } else {
-        prev = { text, size, bullet, heading: false };
+        prev = { text, size, bullet, heading: false, bold };
         out.push(prev);
       }
     });
@@ -146,7 +154,7 @@ export function pageToLines(items: PdfItem[]): PdfLine[] {
       // over from the previous page) keeps its place as ordinary lines.
       out.push(...contentLines(contentItems.filter((i) => i.y > firstY + 6)));
       labels.forEach((lab, idx) => {
-        out.push({ text: lab.text, size: lab.size, bullet: false, heading: true });
+        out.push({ text: lab.text, size: lab.size, bullet: false, heading: true, bold: true });
         const nextY = idx + 1 < labels.length ? labels[idx + 1].y : -Infinity;
         const slice = contentItems.filter((i) => i.y <= lab.y + 6 && i.y > nextY + 6);
         out.push(...contentLines(slice));
@@ -174,12 +182,31 @@ export function pageToLines(items: PdfItem[]): PdfLine[] {
   }
   const isTwoCol = widthRange > 180 && bestSplitX !== -1 && (minCross < 60 || minCross < totalChars * 0.06);
 
+  // Split a row at a wide horizontal gap only when BOTH sides carry substantial
+  // text — that signals a two-column block (e.g. a two-column skills list) rather
+  // than a short right-aligned date like "Company        02/2023 – Present".
+  const splitRowSegments = (items: PdfItem[]): PdfItem[][] => {
+    if (items.length < 2) return [items];
+    let gapIdx = -1, gapW = 0;
+    for (let i = 1; i < items.length; i++) {
+      const g = items[i].x - (items[i - 1].x + items[i - 1].w);
+      if (g > gapW) { gapW = g; gapIdx = i; }
+    }
+    if (gapIdx === -1 || gapW < 45) return [items];
+    const left = items.slice(0, gapIdx), right = items.slice(gapIdx);
+    const len = (g: PdfItem[]) => g.reduce((n, i) => n + i.str.trim().length, 0);
+    if (len(left) >= 18 && len(right) >= 18) return [left, right];
+    return [items];
+  };
+
   const assemble = (group: PdfItem[]): PdfLine[] =>
-    rowsByY(group).map((r) => {
-      const text = cleanText(r.items.map((i) => i.str).join(' '));
-      const size = Math.round(Math.max(...r.items.map((i) => i.size)) || 0);
-      return { text, size, bullet: BULLET_RE.test(text), heading: false };
-    }).filter((l) => l.text.length > 0);
+    rowsByY(group).flatMap((r) =>
+      splitRowSegments(r.items).map((seg) => {
+        const text = cleanText(seg.map((i) => i.str).join(' '));
+        const size = Math.round(Math.max(...seg.map((i) => i.size)) || 0);
+        return { text, size, bullet: BULLET_RE.test(text), heading: false, bold: lineBold(seg) };
+      })
+    ).filter((l) => l.text.length > 0);
 
   if (isTwoCol) {
     const header: PdfItem[] = [], left: PdfItem[] = [], right: PdfItem[] = [], footer: PdfItem[] = [];

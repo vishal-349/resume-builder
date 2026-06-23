@@ -36,6 +36,7 @@ export interface SectionLayout {
   align?: 'left' | 'center' | 'right' | 'justify';     // content alignment, default left
   columns?: 1 | 2 | 3;                                 // grid columns for list-style sections
   skillStyle?: 'chips' | 'list' | 'numbered' | 'inline'; // skills section only, default 'chips'
+  itemSpacing?: number;                                // 0–100 gap between this section's items (undefined = default)
 }
 
 export interface PersonalInfo {
@@ -191,6 +192,7 @@ export interface Resume {
   templateId: string;
   styles: ResumeStyles;
   sections: ResumeSection[]; // Dynamic reordering!
+  perfect?: boolean;         // user-marked "master" / finalized version
 }
 
 export interface ATSFeedback {

@@ -51,8 +51,9 @@ const URL_RE = /(?:https?:\/\/)?(?:www\.)?[a-z0-9-]+\.[a-z]{2,}(?:\/[^\s,)]*)?/i
 
 const MONTH = '(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?';
 const YEAR = '(?:19|20)\\d{2}';
-const NUM_DATE = '\\d{1,2}[\\/.](?:19|20)\\d{2}';   // 02/2023, 9.2019
-const DATE_TOKEN = `(?:${NUM_DATE}|(?:${MONTH}\\s*)?${YEAR})`;
+const NUM_DATE = '\\d{1,2}[\\/.\\-](?:19|20)\\d{2}';     // 02/2023, 02-2023, 9.2019
+const MONTH_YEAR = `${MONTH}[\\s./\\-]*${YEAR}`;          // Jan 2020, FEB-2023, NOV/2019
+const DATE_TOKEN = `(?:${NUM_DATE}|${MONTH_YEAR}|${YEAR})`;
 const PRESENT = '(?:present|current|ongoing|till\\s*date|to\\s*date|now)';
 const DATE_RANGE_RE = new RegExp(`(${DATE_TOKEN})\\s*(?:[-–—]|to|until)\\s*(${DATE_TOKEN}|${PRESENT})`, 'i');
 const ANY_DATE_RE = new RegExp(`${DATE_TOKEN}|${PRESENT}`, 'i');
@@ -192,6 +193,9 @@ function parseExperience(lines: DocLine[]) {
       const parts = splitParts(raw);
       cur.company = parts[0] || raw;
       if (!cur.location && parts[1]) cur.location = parts[1];
+    } else if (!cur.location && raw.length <= 28 && raw.split(/\s+/).length <= 3 && !/[.:]/.test(raw) && /^[A-Za-z][A-Za-z .,'\-]*$/.test(raw)) {
+      // A short standalone place line right after the company (e.g. "Gurgaon").
+      cur.location = raw.replace(/^[,\s]+|[,\s]+$/g, '');
     } else {
       pushDesc(raw);
     }
@@ -220,8 +224,9 @@ function parseEducation(lines: DocLine[]) {
     const grade = raw.match(GRADE_RE);
     const isDegree = degreeRe.test(raw);
     const isInst = instRe.test(raw);
-    // A new entry begins on an institution line, or a second degree line.
-    const startNew = !cur || (isInst && (cur.institution || cur.degree)) || (isDegree && cur.degree);
+    // A new entry begins only when the current one already has that slot filled —
+    // so a degree line + its institution line (in either order) stay one entry.
+    const startNew = !cur || (isInst && cur.institution) || (isDegree && cur.degree);
     if (startNew) {
       if (cur) items.push(cur);
       cur = {
@@ -292,26 +297,28 @@ function splitProjectNameDesc(body: string): [string, string] {
 function parseProjects(lines: DocLine[]) {
   const items: any[] = [];
   let cur: any = null;
+  const startProject = (raw: string) => {
+    if (cur) items.push(cur);
+    const dates = extractDates(raw);
+    const [rawName, desc] = splitProjectNameDesc(raw);
+    const name = rawName
+      .replace(/\(\s+/g, '(').replace(/\s+\)/g, ')')   // tidy "( 2019 )" → "(2019)"
+      .replace(/\s{2,}/g, ' ')
+      .replace(/[\s,;:–—-]+$/, '')
+      .trim();
+    const url = raw.match(URL_RE);
+    cur = { name: name || raw, role: '', url: url ? url[0] : '', startDate: dates.start, endDate: dates.end, current: dates.current, description: desc };
+  };
   lines.forEach((ln) => {
     const raw = ln.text.trim();
     if (!raw) return;
-    const url = raw.match(URL_RE);
-    if (ln.bullet) {
-      // Each bullet is a distinct project: "Name (status/date) - description".
-      if (cur) items.push(cur);
-      const body = stripBullet(raw);
-      const dates = extractDates(body);
-      const [rawName, desc] = splitProjectNameDesc(body);
-      const name = rawName
-        .replace(/\(\s+/g, '(').replace(/\s+\)/g, ')')   // tidy "( 2019 )" → "(2019)"
-        .replace(/\s{2,}/g, ' ')
-        .replace(/[\s,;:–—-]+$/, '')
-        .trim();
-      cur = { name: name || body, role: '', url: url ? url[0] : '', startDate: dates.start, endDate: dates.end, current: dates.current, description: desc };
-      return;
-    }
-    if (!cur) { cur = { name: raw, role: '', url: url ? url[0] : '', startDate: '', endDate: '', current: false, description: '' }; return; }
+    // A new project begins on a bullet OR a bold, short title line (résumés that
+    // use a bold project name with the description in plain text below).
+    const isTitle = ln.bullet || (ln.bold && raw.length <= 80 && raw.split(/\s+/).length <= 12 && !/[.!?]$/.test(raw));
+    if (isTitle) { startProject(ln.bullet ? stripBullet(raw) : raw); return; }
+    if (!cur) { cur = { name: raw, role: '', url: '', startDate: '', endDate: '', current: false, description: '' }; return; }
     // Continuation line → append to the current project's description.
+    const url = raw.match(URL_RE);
     if (url && !cur.url) cur.url = url[0];
     cur.description = cur.description ? `${cur.description} ${raw}` : raw;
   });
@@ -477,11 +484,26 @@ function extractContact(lines: DocLine[]): ParsedContact {
     if (/\.[a-z]{2,}/i.test(clean)) { c.website = clean; break; }
   }
 
-  // Name — prefer the biggest-font line near the top; else first non-contact title-ish line.
-  const head = lines.slice(0, 8);
-  let nameLine = head
-    .filter((l) => !looksLikeContact(l.text) && !l.bullet && l.text.length >= 3 && l.text.length <= 40 && /[A-Za-z]/.test(l.text) && l.text.split(/\s+/).length <= 5)
-    .sort((a, b) => (b.size || 0) - (a.size || 0))[0];
+  // Name — strip any contact tokens off each header line (the name is sometimes on
+  // the same row as the phone, e.g. "VISHAL TYAGI 8859428724"), then take the line
+  // whose residue looks like a person's name and is NOT a section heading.
+  const stripContactTokens = (t: string) => t
+    .replace(new RegExp(EMAIL_RE.source, 'gi'), ' ')
+    .replace(LINKEDIN_RE, ' ').replace(GITHUB_RE, ' ')
+    .replace(new RegExp(URL_RE.source, 'gi'), ' ')
+    .replace(PHONE_RE, ' ')
+    .replace(/[|•·,]/g, ' ')
+    .replace(/\s{2,}/g, ' ').trim();
+  const NAME_RE = /^[A-Z][A-Za-z.'\-]*(?:\s+[A-Z][A-Za-z.'\-]*){0,3}$/; // 1–4 capitalised words
+  let nameCand: { text: string; size: number; idx: number } | null = null;
+  lines.slice(0, 8).forEach((l, idx) => {
+    if (l.bullet) return;
+    const residue = stripContactTokens(l.text);
+    if (residue.length < 3 || residue.length > 40) return;
+    if (residue.split(/\s+/).length > 4 || !NAME_RE.test(residue)) return;
+    if (mapHeadingType(residue) !== 'custom') return; // skip "JOB PROFILE", "SUMMARY", …
+    if (!nameCand || (l.size || 0) > nameCand.size) nameCand = { text: residue, size: l.size || 0, idx };
+  });
   // Location — a "City, ST" / "City, Country" style line in the header, no @/url.
   const PLACE_RE = /^[A-Za-z .'\-]+,\s*[A-Za-z .'\-]+$/;
   for (const ln of lines.slice(0, 12)) {
@@ -493,16 +515,16 @@ function extractContact(lines: DocLine[]): ParsedContact {
     }
   }
 
-  // Assign name + job title (job title is the line after the name, never the location).
-  if (nameLine) {
-    c.fullName = nameLine.text.replace(/\s{2,}/g, ' ').trim();
-    const idx = lines.indexOf(nameLine);
-    const next = lines[idx + 1];
-    // Job title = the line right after the name, unless it's the location.
+  // Assign name + job title (job title is the line after the name, never the
+  // location or a section heading).
+  if (nameCand) {
+    c.fullName = nameCand.text;
+    const next = lines[nameCand.idx + 1];
     if (
       next && !looksLikeContact(next.text) && next.text.length <= 60 &&
       next.text.split(/\s+/).length <= 8 && !next.bullet &&
-      next.text.trim() !== c.location && !PLACE_RE.test(next.text.trim())
+      next.text.trim() !== c.location && !PLACE_RE.test(next.text.trim()) &&
+      mapHeadingType(normHeading(next.text)) === 'custom'
     ) {
       c.jobTitle = next.text.trim();
     }
@@ -512,8 +534,11 @@ function extractContact(lines: DocLine[]): ParsedContact {
 
 /* ------------------------------ main ------------------------------- */
 
+/** Page-footer noise like "VISHAL TYAGI   PAGE 1 OF 3" or "Page 2 of 4". */
+const FOOTER_RE = /\bpage\s+\d+\s+of\s+\d+\b/i;
+
 export function analyzeResume(lines: DocLine[]): ParsedResume {
-  const clean = lines.filter((l) => l.text && l.text.trim().length > 0);
+  const clean = lines.filter((l) => l.text && l.text.trim().length > 0 && !FOOTER_RE.test(l.text));
   // Body font size = the most common size among longer lines (PDF only).
   const sizeFreq = new Map<number, number>();
   clean.forEach((l) => { if (l.size > 0 && l.text.length > 12) sizeFreq.set(l.size, (sizeFreq.get(l.size) || 0) + l.text.length); });
