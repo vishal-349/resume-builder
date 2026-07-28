@@ -118,17 +118,31 @@ src/services/
 Swapping to OpenAI or Claude means adding one file that implements the `AIProvider` interface and
 registering it in `provider.ts`. No component, hook, or store code changes.
 
-### Moving the key to a backend
+### Deploying (Vercel)
 
-Anything prefixed with `VITE_` is embedded in the client bundle and is therefore **public in a
-deployed build**. For a shared deployment, run the AI call server-side:
+Anything prefixed with `VITE_` is compiled into the client bundle and is therefore **readable by
+anyone who loads the deployed site**. Do not put a Gemini key in `VITE_GEMINI_API_KEY` on a public
+deployment.
 
-1. Deploy an endpoint (Vercel Function, Cloudflare Worker, …) that accepts
-   `{ payload, systemInstruction, userPrompt, responseSchema }`, forwards it to your provider with a
-   server-side key, and returns `{ data }`.
-2. Set `VITE_AI_PROXY_URL=/api/parse-resume` and leave `VITE_GEMINI_API_KEY` empty.
+The repo ships a serverless proxy at [`api/parse-resume.ts`](api/parse-resume.ts) that keeps the key
+on the server. To use it, set these in the Vercel project's **Environment Variables**:
 
-`ProxyProvider` is already implemented, so this requires no application code changes.
+| Variable | Value | Notes |
+| --- | --- | --- |
+| `GEMINI_API_KEY` | your key | **No `VITE_` prefix** — server-side only, never shipped to the browser |
+| `VITE_AI_PROXY_URL` | `/api/parse-resume` | Tells the client to route through the proxy |
+| `VITE_GEMINI_API_KEY` | *(leave unset)* | Setting it would expose the key |
+
+`ProxyProvider` already speaks this endpoint's contract, so nothing in the application changes —
+`resolveAIConfig()` sees `VITE_AI_PROXY_URL` and picks the proxy adapter instead of the direct one.
+
+If you deploy without either variable, the app still works: the import dialog asks each visitor for
+their own key and stores it in their browser's `localStorage`. That is the right default for a demo,
+and it means a misconfigured deploy degrades to a prompt rather than a broken feature.
+
+Pushing to `main` triggers a production deploy; pushing any other branch gives a preview deploy with
+its own URL. Environment variables are per-environment, so set them for Preview too if you want
+imports to work on branch deploys.
 
 ### Verifying imports
 
