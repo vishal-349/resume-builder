@@ -5,21 +5,12 @@
 
 import { Resume, ResumeSection, SectionType, LanguageCode, ResumeStyles, SectionLayout, CustomTemplate } from './types';
 import { TRANSLATIONS } from './translations';
+import { DEFAULT_STYLES } from './defaultStyles';
 
 const STORAGE_KEY = 'premium_resume_builder_data';
 
-export const DEFAULT_STYLES: ResumeStyles = {
-  primaryColor: '#1e3a8a', // Deep navy
-  textColor: '#1f2937', // Dark gray
-  backgroundColor: '#ffffff',
-  fontFamily: 'sans', // Inter
-  fontSize: 'md',
-  spacing: 'normal',
-  dividerStyle: 'solid',
-  sectionHeadingSize: 'md',
-  sectionHeadingAlignment: 'left',
-  borderRadius: 'md',
-};
+// Re-exported so existing `import { DEFAULT_STYLES } from './store'` keeps working.
+export { DEFAULT_STYLES };
 
 export function createNewResume(title: string, lang: LanguageCode = 'en'): Resume {
   const trans = TRANSLATIONS[lang];
@@ -846,7 +837,10 @@ export class ResumeStoreManager {
     if (!active) return;
     const sectionLayouts: Record<string, SectionLayout> = {};
     active.sections.forEach((sec) => {
-      if (sec.layout) sectionLayouts[sec.type] = { ...sec.layout };
+      // Keyed by type AND name: a resume can hold several sections of the same
+      // type (e.g. "Key Projects" + "Research Projects"), and keying on type
+      // alone would make them share — and overwrite — one layout.
+      if (sec.layout) sectionLayouts[`${sec.type}:${sec.name}`] = { ...sec.layout };
     });
     const finalName = name.trim() || `My Template ${this.state.customTemplates.length + 1}`;
     // Dedupe by name: re-saving / re-importing a same-named design updates the
@@ -871,7 +865,9 @@ export class ResumeStoreManager {
     if (!template) return;
     this.updateActiveResume((resume) => {
       const sections = resume.sections.map((sec) => {
-        const layout = template.sectionLayouts[sec.type];
+        // Prefer the exact type+name key; fall back to the legacy type-only key
+        // so presets saved before that change keep working.
+        const layout = template.sectionLayouts[`${sec.type}:${sec.name}`] ?? template.sectionLayouts[sec.type];
         return layout ? { ...sec, layout: { ...layout } } : { ...sec, layout: undefined };
       });
       return {
@@ -1184,22 +1180,30 @@ export class ResumeStoreManager {
     this.emit();
   }
 
-  public addImportedResume(resume: Resume) {
+  /**
+   * Add a freshly imported resume and make it active.
+   *
+   * `replaceId` targets an existing resume to overwrite in place — used when
+   * the importer detects a re-import and the user chooses "Replace". Without
+   * it the resume is always added as a new entry; the caller is responsible for
+   * having asked the user first, so nothing is ever overwritten silently.
+   */
+  public addImportedResume(resume: Resume, replaceId?: string) {
     this.pushToHistory();
-    // Re-importing the same resume (same title) replaces that entry in place
-    // instead of piling up duplicate copies. Other resumes are untouched.
-    const existing = this.state.resumes.find(
-      (r) => r.title.trim().toLowerCase() === resume.title.trim().toLowerCase()
-    );
-    if (existing) {
-      const merged = { ...resume, id: existing.id };
-      this.state.resumes = this.state.resumes.map((r) => (r.id === existing.id ? merged : r));
-      this.state.activeResumeId = existing.id;
+    const target = replaceId ? this.state.resumes.find((r) => r.id === replaceId) : undefined;
+
+    if (target) {
+      // Keep the existing id so history entries and any references stay valid,
+      // and preserve the "Perfect" flag — replacing content is not a demotion.
+      const merged = { ...resume, id: target.id, perfect: target.perfect };
+      this.state.resumes = this.state.resumes.map((r) => (r.id === target.id ? merged : r));
+      this.state.activeResumeId = target.id;
     } else {
       this.state.resumes.push(resume);
       this.state.activeResumeId = resume.id;
     }
     this.emit();
+    return this.state.activeResumeId;
   }
 
   public clearAllData() {
