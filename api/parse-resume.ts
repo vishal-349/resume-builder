@@ -78,8 +78,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     res.status(204).end();
     return;
   }
+  // GET is a health check, not an error. Opening this route in a browser is the
+  // fastest way to answer "is the function deployed, and does it have a key?" —
+  // returning a bare 405 there tells you nothing. Reports presence only, never
+  // the key itself.
+  if (req.method === 'GET') {
+    res.status(200).json({
+      ok: true,
+      endpoint: '/api/parse-resume',
+      hasApiKey: !!process.env.GEMINI_API_KEY,
+      model: process.env.GEMINI_MODEL || DEFAULT_MODEL,
+      hint: process.env.GEMINI_API_KEY
+        ? 'Function is deployed and a server-side key is configured. POST a document to use it.'
+        : 'Function is deployed but GEMINI_API_KEY is NOT set in this environment. Set it (no VITE_ prefix) and redeploy.',
+    });
+    return;
+  }
+
   if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST, OPTIONS');
+    res.setHeader('Allow', 'GET, POST, OPTIONS');
     fail(res, 405, 'PROVIDER_UNAVAILABLE', 'Method not allowed.');
     return;
   }

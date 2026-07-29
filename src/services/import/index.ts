@@ -17,6 +17,8 @@ export {
   setStoredApiKey,
   clearStoredApiKey,
   resolveAIConfig,
+  getAIBuildInfo,
+  type AIBuildInfo,
 } from '../ai/config';
 
 export { assembleResume, type AssembleResult } from './resumeAssembler';

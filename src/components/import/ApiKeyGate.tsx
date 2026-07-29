@@ -10,8 +10,8 @@
  */
 
 import React, { useState } from 'react';
-import { ExternalLink, Eye, EyeOff, KeyRound, ShieldCheck } from 'lucide-react';
-import { getStoredApiKey, setStoredApiKey } from '../../services/import';
+import { ExternalLink, Eye, EyeOff, KeyRound, ShieldCheck, TerminalSquare } from 'lucide-react';
+import { getAIBuildInfo, getStoredApiKey, setStoredApiKey } from '../../services/import';
 
 interface Props {
   onSaved: () => void;
@@ -21,6 +21,8 @@ interface Props {
 export default function ApiKeyGate({ onSaved, onCancel }: Props) {
   const [key, setKey] = useState(getStoredApiKey());
   const [reveal, setReveal] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const build = getAIBuildInfo();
 
   const save = () => {
     if (!key.trim()) return;
@@ -80,6 +82,56 @@ export default function ApiKeyGate({ onSaved, onCancel }: Props) {
             the key lives on your server rather than in the browser.
           </span>
         </p>
+      </div>
+
+      {/* Build diagnostics.
+          VITE_* variables are baked in at build time, so one added to the host
+          dashboard after the last build is simply absent — and without this the
+          only symptom is this dialog appearing for no visible reason. */}
+      <div className="space-y-1.5 pt-1 border-t border-slate-100">
+        <button
+          type="button"
+          onClick={() => setShowDiagnostics(!showDiagnostics)}
+          className="flex items-center gap-1.5 text-[9.5px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-wide cursor-pointer transition-colors"
+        >
+          <TerminalSquare size={11} />
+          Expected a proxy? Check what this build received
+        </button>
+
+        {showDiagnostics && (
+          <div className="space-y-2 animate-fade-in">
+            <div className="text-[9.5px] font-mono bg-slate-50 border border-slate-100 rounded-lg p-2.5 space-y-0.5 text-slate-600">
+              <div>
+                VITE_AI_PROXY_URL ={' '}
+                <span className={build.hasProxyUrl ? 'text-emerald-600 font-bold' : 'text-red-600 font-bold'}>
+                  {build.hasProxyUrl ? build.proxyUrl : 'not set in this build'}
+                </span>
+              </div>
+              <div>
+                VITE_GEMINI_API_KEY ={' '}
+                <span className={build.hasBuildKey ? 'text-emerald-600 font-bold' : 'text-slate-400'}>
+                  {build.hasBuildKey ? 'set' : 'not set'}
+                </span>
+              </div>
+              <div>
+                VITE_* names compiled in ={' '}
+                <span className="text-slate-500">
+                  {build.viteKeysInBuild.length ? build.viteKeysInBuild.join(', ') : 'none'}
+                </span>
+              </div>
+            </div>
+
+            {!build.hasProxyUrl && (
+              <p className="text-[9.5px] text-amber-800 bg-amber-50/70 border border-amber-200 rounded-lg p-2.5 leading-relaxed">
+                <strong>This build was compiled without a proxy URL.</strong> Because Vite bakes{' '}
+                <code className="font-mono">VITE_*</code> values in at build time, adding the variable to your hosting
+                dashboard only takes effect on the <em>next</em> build — and a redeploy that reuses the build cache will
+                not pick it up. Redeploy with the cache disabled, and make sure the variable is enabled for this
+                environment (Preview and Production are configured separately).
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex justify-end gap-2">

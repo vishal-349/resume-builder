@@ -120,3 +120,60 @@ export function isAIConfigured(config: AIConfig = resolveAIConfig()): boolean {
 export function hasEnvApiKey(): boolean {
   return !!env('VITE_GEMINI_API_KEY');
 }
+
+/* ------------------------------------------------------------------ */
+/* Diagnostics                                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * What this specific BUILD was compiled with.
+ *
+ * `VITE_*` variables are baked in at build time, not read at runtime, so a
+ * variable added to the hosting dashboard after the last build simply is not
+ * there — and the only visible symptom was the app quietly asking for a key.
+ * This makes the build's actual configuration inspectable so that failure mode
+ * is diagnosable instead of mysterious.
+ *
+ * Never exposes the key itself, only whether one was compiled in.
+ */
+export interface AIBuildInfo {
+  /** True when VITE_AI_PROXY_URL was present at build time. */
+  hasProxyUrl: boolean;
+  proxyUrl: string;
+  /** True when VITE_GEMINI_API_KEY was present at build time. */
+  hasBuildKey: boolean;
+  /** True when the visitor pasted their own key into this browser. */
+  hasStoredKey: boolean;
+  model: string;
+  mode: AIMode;
+  configured: boolean;
+  /** Every VITE_ name this build actually carries — the ground truth. */
+  viteKeysInBuild: string[];
+}
+
+export function getAIBuildInfo(): AIBuildInfo {
+  const config = resolveAIConfig();
+  let viteKeysInBuild: string[] = [];
+  try {
+    viteKeysInBuild = Object.keys(import.meta.env ?? {}).filter((k) => k.startsWith('VITE_'));
+  } catch {
+    /* no import.meta.env at all */
+  }
+
+  return {
+    hasProxyUrl: !!config.proxyUrl,
+    proxyUrl: config.proxyUrl,
+    hasBuildKey: hasEnvApiKey(),
+    hasStoredKey: !!getStoredApiKey(),
+    model: config.model,
+    mode: config.mode,
+    configured: isAIConfigured(config),
+    viteKeysInBuild,
+  };
+}
+
+// Exposed on window so a deployed build can be inspected from the console
+// without a rebuild: `__aiConfig()`.
+if (typeof window !== 'undefined') {
+  (window as unknown as Record<string, unknown>).__aiConfig = getAIBuildInfo;
+}
