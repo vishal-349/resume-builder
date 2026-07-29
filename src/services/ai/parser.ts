@@ -33,7 +33,7 @@ const STAGE_PERCENT = { validating: 5, reading: 20, analyzing: 45, building: 92,
 /** Analyze an already-prepared payload. Shared by the file and paste paths. */
 async function analyzePayload(payload: DocumentPayload, options: ParseOptions): Promise<ParsedResume> {
   const config = resolveAIConfig();
-  const provider = getProvider(config);
+  const provider = await getProvider(config);
   const startedAt = Date.now();
 
   options.onProgress?.({

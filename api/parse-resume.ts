@@ -32,6 +32,15 @@ interface VercelResponse {
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const DEFAULT_MODEL = 'gemini-flash-latest';
 const REQUEST_TIMEOUT_MS = 120_000;
+/**
+ * Transient upstream failures are retried here, matching what GeminiProvider
+ * does on the direct path. Without this the proxy — which is the production
+ * path — would be strictly less resilient than the client path it replaces: a
+ * single per-minute 429 would fail an import that a short wait would have
+ * completed. Free-tier rate limits make that a routine event, not an edge case.
+ */
+const MAX_ATTEMPTS = 3;
+const MAX_BACKOFF_MS = 15_000;
 
 /** Mirrors the client's DocumentPayload. */
 type DocumentPayload =
@@ -127,29 +136,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const upstreamBody = JSON.stringify({
+    contents: [{ role: 'user', parts }],
+    systemInstruction: { parts: [{ text: body.systemInstruction }] },
+    generationConfig: {
+      temperature: 0,
+      topP: 0.95,
+      responseMimeType: 'application/json',
+      responseSchema: body.responseSchema,
+    },
+  });
 
   try {
-    const upstream = await fetch(`${API_BASE}/models/${encodeURIComponent(model)}:generateContent`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts }],
-        systemInstruction: { parts: [{ text: body.systemInstruction }] },
-        generationConfig: {
-          temperature: 0,
-          topP: 0.95,
-          responseMimeType: 'application/json',
-          responseSchema: body.responseSchema,
-        },
-      }),
-      signal: controller.signal,
-    });
+    let upstream: Response | undefined;
 
-    if (!upstream.ok) {
-      const text = await upstream.text().catch(() => '');
-      const mapped = mapUpstreamError(upstream.status, text);
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      upstream = await fetch(`${API_BASE}/models/${encodeURIComponent(model)}:generateContent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: upstreamBody,
+        signal: controller.signal,
+      });
+      if (upstream.ok) break;
+
+      // 429 and 5xx are worth waiting out; 4xx is a real rejection.
+      const worthRetrying = upstream.status === 429 || upstream.status >= 500;
+      if (!worthRetrying || attempt === MAX_ATTEMPTS) break;
+
+      const retryAfter = Number.parseInt(upstream.headers.get('retry-after') ?? '', 10);
+      const waitMs = Math.min(
+        MAX_BACKOFF_MS,
+        Number.isFinite(retryAfter) ? retryAfter * 1000 : 1000 * 2 ** (attempt - 1)
+      );
+      console.warn(`Gemini ${upstream.status} on attempt ${attempt}/${MAX_ATTEMPTS}; retrying in ${waitMs}ms`);
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
+
+    if (!upstream || !upstream.ok) {
+      const status = upstream?.status ?? 502;
+      const text = upstream ? await upstream.text().catch(() => '') : '';
+      const mapped = mapUpstreamError(status, text);
       // Never echo the upstream body to the client — it can contain key hints.
-      console.error(`Gemini ${upstream.status}: ${text.slice(0, 500)}`);
+      console.error(`Gemini ${status}: ${text.slice(0, 500)}`);
       fail(res, mapped.status, mapped.code, mapped.message);
       return;
     }

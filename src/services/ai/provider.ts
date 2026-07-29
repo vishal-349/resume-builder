@@ -10,22 +10,24 @@
  */
 
 import { resolveAIConfig, type AIConfig } from './config';
-import { GeminiProvider } from './gemini';
 import { ProxyProvider } from './proxy';
 import type { AIProvider } from './types';
 
 /**
  * Build the provider for a configuration.
  *
- * Not cached: configuration can change at runtime (the user pasting a key),
- * and constructing an adapter is free.
+ * The Gemini adapter is loaded on demand rather than imported statically. In a
+ * proxy deployment the vendor client is then never fetched at all: the code
+ * that could talk to Gemini from the browser is not merely unused, it is not
+ * present. That turns "the client must not call the vendor directly" from a
+ * branch you have to trust into something the bundle guarantees, and keeps the
+ * vendor SDK path out of the main chunk.
+ *
+ * Not cached: configuration can change at runtime (the user pasting a key), and
+ * constructing an adapter is free.
  */
-export function getProvider(config: AIConfig = resolveAIConfig()): AIProvider {
-  switch (config.mode) {
-    case 'proxy':
-      return new ProxyProvider(config);
-    case 'direct':
-    default:
-      return new GeminiProvider(config);
-  }
+export async function getProvider(config: AIConfig = resolveAIConfig()): Promise<AIProvider> {
+  if (config.mode === 'proxy') return new ProxyProvider(config);
+  const { GeminiProvider } = await import('./gemini');
+  return new GeminiProvider(config);
 }
