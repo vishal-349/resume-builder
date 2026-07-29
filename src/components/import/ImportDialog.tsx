@@ -9,7 +9,7 @@
 
 import React, { useState } from 'react';
 import { FileSpreadsheet, FileText, Info, Sparkles } from 'lucide-react';
-import { FILE_INPUT_ACCEPT, type ImportError, type ImportProgress } from '../../services/import';
+import { FILE_INPUT_ACCEPT, getAIBuildInfo, type ImportError, type ImportProgress } from '../../services/import';
 import ImportProgressView from './ImportProgress';
 import ImportErrorPanel from './ImportErrorPanel';
 import ApiKeyGate from './ApiKeyGate';
@@ -48,6 +48,19 @@ export default function ImportDialog({
   const [showKeyGate, setShowKeyGate] = useState(false);
 
   const needsKey = !isConfigured || showKeyGate;
+
+  // A proxy build must never ask the visitor for a key — the key lives on the
+  // server. If that ever happens it is a bug in the resolution path, not a
+  // configuration problem, so say so loudly rather than silently prompting.
+  if (needsKey && !showKeyGate) {
+    const build = getAIBuildInfo();
+    if (build.hasProxyUrl) {
+      console.error(
+        '[resume-import] Key prompt shown despite a configured proxy — this is a bug. Build config:',
+        build
+      );
+    }
+  }
 
   const handleKeySaved = () => {
     setShowKeyGate(false);

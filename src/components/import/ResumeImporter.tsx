@@ -9,7 +9,7 @@
  * behaviour lives in `useResumeImport`; this only decides what is on screen.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { isAIConfigured, nextAvailableTitle } from '../../services/import';
 import { store } from '../../store';
 import type { ATSFeedback, LanguageCode, Resume } from '../../types';
@@ -30,11 +30,21 @@ export default function ResumeImporter({ open, language, onClose, onImported }: 
   const importer = useResumeImport(language);
   const { outcome, reset } = importer;
 
-  // Re-read on each open so a key saved mid-session takes effect immediately.
-  const [configured, setConfigured] = useState(() => isAIConfigured());
-  useEffect(() => {
-    if (open) setConfigured(isAIConfigured());
-  }, [open]);
+  /**
+   * Whether AI is configured is DERIVED, never stored.
+   *
+   * It used to be cached in state and resynced by an effect keyed on `open`.
+   * That is a cached derivation, and cached derivations go stale: this component
+   * mounts once at app startup and stays mounted, so any config change that did
+   * not coincide with the dialog opening left the cached value behind — showing
+   * the key prompt on a perfectly configured build, with no way to tell why.
+   *
+   * Reading it during render costs nothing (a string check plus one
+   * localStorage read) and cannot disagree with the real configuration.
+   * `keyRevision` exists only to re-run that read after the user saves a key.
+   */
+  const [keyRevision, setKeyRevision] = useState(0);
+  const configured = useMemo(() => isAIConfigured(), [keyRevision, open]);
 
   // Hand the finished import upward, then clear it so it fires exactly once.
   useEffect(() => {
@@ -76,7 +86,7 @@ export default function ResumeImporter({ open, language, onClose, onImported }: 
       onSubmitText={importer.startText}
       onRetry={importer.retry}
       onDismissError={importer.reset}
-      onKeySaved={() => setConfigured(isAIConfigured())}
+      onKeySaved={() => setKeyRevision((n) => n + 1)}
       onClose={close}
     />
   );
