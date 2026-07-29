@@ -11,3 +11,6 @@ coverage/
 # Personal résumé fixtures used only for local Smart-Import testing — kept out of
 # the public repo to avoid publishing personal contact details.
 sample-resume/
+
+# Regression output — contains parsed resume content (personal data).
+import-regression-report.json

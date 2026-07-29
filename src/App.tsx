@@ -3,15 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { store, loadInitialState, DEFAULT_STYLES } from './store';
+import type { ATSFeedback, Resume } from './types';
 import { TEMPLATE_DEFINITIONS, COLOR_PRESETS } from './templates';
 import { analyzeResumeATS } from './atsChecker';
 import { saveAsDocx, saveAsTxt } from './docxExport';
-import { readDocument, linesFromText, DocStyle } from './import/readDocument';
-import { analyzeResume, ParsedResume } from './import/analyzeResume';
-import { buildImportedResume } from './import/buildImportedResume';
 import { TRANSLATIONS } from './translations';
 
 // Components
@@ -23,7 +21,7 @@ import StatsDashboard from './components/StatsDashboard';
 import PortfolioGenerator from './components/PortfolioGenerator';
 import ResumeForm from './components/ResumeForm';
 import ShinyButton from './components/ShinyButton';
-import ImportPreview from './components/ImportPreview';
+import ResumeImporter from './components/import/ResumeImporter';
 
 import {
   FileText,
@@ -64,12 +62,8 @@ export default function App() {
 
   // Mobile Navigation states
   const [mobileTab, setMobileTab] = useState<'edit' | 'templates' | 'preview' | 'download'>('edit');
-  const [rawPastedText, setRawPastedText] = useState('');
+  // AI Resume Import — all of its state lives inside <ResumeImporter />.
   const [showImportDialog, setShowImportDialog] = useState(false);
-  // Smart Import: the analyzed resume awaiting user confirmation in the preview.
-  const [importPreview, setImportPreview] = useState<ParsedResume | null>(null);
-  const [importStyle, setImportStyle] = useState<DocStyle | undefined>(undefined);
-  const [showPasteField, setShowPasteField] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [successToast, setSuccessToast] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -112,69 +106,20 @@ export default function App() {
     }
   };
 
-  const [isImportLoading, setIsImportLoading] = useState(false);
-  const [dragActive, setDragActive] = useState(false);
-
-  // Read → analyze → open the preview screen. Fully offline, no AI/backend.
-  const handleFileUpload = async (file: File) => {
-    setIsImportLoading(true);
-    setSuccessToast(`Reading "${file.name}"...`);
-    try {
-      const { lines, style } = await readDocument(file);
-      setImportStyle(style);
-      setSuccessToast('Detecting sections & extracting data...');
-      const parsed = analyzeResume(lines);
-      // Default the resume name to the file name if no person name was found.
-      if (!parsed.contact.fullName) {
-        parsed.resumeName = file.name.replace(/\.[^/.]+$/, '') + ' Resume';
-      }
-      setShowImportDialog(false);
-      setImportPreview(parsed);
-    } catch (err: any) {
-      console.error(err);
-      triggerNotification('Import failed: ' + (err?.message || 'could not read file'));
-    } finally {
-      setIsImportLoading(false);
-    }
-  };
-
-  const handleImportText = async () => {
-    if (rawPastedText.trim().length === 0) return;
-    setIsImportLoading(true);
-    try {
-      setSuccessToast('Detecting sections & extracting data...');
-      setImportStyle(undefined);
-      const parsed = analyzeResume(linesFromText(rawPastedText));
-      setShowImportDialog(false);
-      setRawPastedText('');
-      setImportPreview(parsed);
-    } catch (err: any) {
-      console.error(err);
-      triggerNotification('Import failed: ' + (err?.message || 'could not parse text'));
-    } finally {
-      setIsImportLoading(false);
-    }
-  };
-
-  // Build the editable resume + auto-create a reusable custom template.
-  const handleConfirmImport = (finalParsed: ParsedResume) => {
-    try {
-      const resume = buildImportedResume(finalParsed, activeResume?.language || 'en', importStyle);
-      store.addImportedResume(resume);
-      // Register a reusable preset named after the candidate and link the resume
-      // to it (so it shows as the active design). Dedupes by name on re-import.
-      try {
-        const tpl = store.saveCurrentAsTemplate(finalParsed.resumeName);
-        if (tpl) store.applyCustomTemplate(tpl.id);
-      } catch { /* non-fatal */ }
-      setImportPreview(null);
+  /**
+   * A resume finished importing. The ATS score is computed by the importer as
+   * part of the commit, so the badge in the ribbon is already current — this
+   * just surfaces it and drops the user into the editor.
+   */
+  const handleImported = useCallback(
+    ({ resume, ats, replaced }: { resume: Resume; ats: ATSFeedback; replaced: boolean }) => {
       setActiveTab('editor');
-      triggerNotification(`Created "${resume.title}" — fully editable!`);
-    } catch (err: any) {
-      console.error(err);
-      triggerNotification('Could not build resume: ' + (err?.message || 'unknown error'));
-    }
-  };
+      triggerNotification(
+        `${replaced ? 'Updated' : 'Created'} "${resume.title}" — ATS score ${ats.score}% (${ats.grade}). Fully editable.`
+      );
+    },
+    []
+  );
 
   const triggerNotification = (msg: string) => {
     setSuccessToast(msg);
@@ -262,10 +207,11 @@ export default function App() {
 
           <button
             onClick={() => setShowImportDialog(true)}
+            title="Import an existing PDF or Word resume with AI"
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white border border-violet-200 text-violet-700 hover:bg-violet-50 hover:border-violet-300 rounded-lg text-xxs font-bold transition-all cursor-pointer animate-pulse-subtle"
           >
             <Upload size={11} />
-            Upload Resume
+            Import Resume
           </button>
 
           <button
@@ -757,175 +703,13 @@ export default function App() {
 
       </main>
 
-      {/* Raw Text / File Upload Resume Importer Dialog */}
-      {/* Smart Import preview — appears after a file/paste is analyzed */}
-      {importPreview && (
-        <ImportPreview
-          parsed={importPreview}
-          onCancel={() => setImportPreview(null)}
-          onConfirm={handleConfirmImport}
-        />
-      )}
-
-      {showImportDialog && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in no-print">
-          <div className="bg-white border border-blue-100 rounded-2xl max-w-xl w-full p-6 space-y-4 text-left shadow-2xl relative overflow-hidden animate-float-up">
-            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
-              <div>
-                <span className="text-[10px] font-black text-blue-500 uppercase font-mono tracking-wider">Smart Resume Import</span>
-                <h3 className="text-sm font-bold text-slate-900 mt-0.5">Upload PDF / Word — auto-build a custom resume</h3>
-              </div>
-              <button
-                onClick={() => !isImportLoading && setShowImportDialog(false)}
-                disabled={isImportLoading}
-                className="p-1 px-2.5 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-800 rounded-lg text-xs transition-colors cursor-pointer disabled:opacity-50"
-              >
-                Cancel
-              </button>
-            </div>
-
-            {isImportLoading ? (
-              <div className="py-12 flex flex-col items-center justify-center gap-4 text-center">
-                <div className="w-12 h-12 rounded-full border-4 border-blue-100 border-t-violet-500 animate-spin" />
-                <div className="space-y-1.5 max-w-sm">
-                  <p className="text-xs font-black text-slate-800 animate-pulse">Running Local PDF / DOCX Parser...</p>
-                  <p className="text-[9.5px] text-slate-450 leading-relaxed">
-                    Reading file components, mapping raw text with deterministic pattern clustering, and auto-populating sections directly inside your browser.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div
-                className={`space-y-4 font-display rounded-xl transition-all ${dragActive ? 'ring-2 ring-violet-400 ring-offset-2' : ''}`}
-                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (!dragActive) setDragActive(true); }}
-                onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragActive(true); }}
-                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragActive(false); }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setDragActive(false);
-                  const f = e.dataTransfer?.files?.[0];
-                  if (f) handleFileUpload(f);
-                }}
-              >
-                <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                  Click a card below to choose your resume file, or <span className="font-bold text-violet-600">drag &amp; drop</span> a PDF / Word file anywhere in this box. Everything is parsed locally in your browser.
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Option 1: PDF — the real <input> overlays the whole card so a click always opens the picker */}
-                  <label className="relative border border-slate-200 bg-white hover:border-red-400 hover:bg-red-50/40 rounded-xl p-5 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-3 group shadow-xxs hover:shadow-md">
-                    <input
-                      type="file"
-                      accept=".pdf,application/pdf"
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                      onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          handleFileUpload(e.target.files[0]);
-                        }
-                      }}
-                    />
-                    <div className="w-12 h-12 rounded-full bg-red-50 group-hover:bg-red-100 flex items-center justify-center text-red-500 transition-colors">
-                      <FileText size={24} />
-                    </div>
-                    <div className="space-y-0.5">
-                      <h4 className="text-xs font-bold text-slate-800">1. Upload PDF</h4>
-                      <p className="text-[9.5px] text-slate-400 leading-normal max-w-[170px] mx-auto">
-                        Extract instantly from vector or scanned PDF files
-                      </p>
-                    </div>
-                    <span className="text-[8px] font-bold py-0.5 px-2 bg-red-50 text-red-600 rounded-full font-mono">
-                      PDF Document
-                    </span>
-                  </label>
-
-                  {/* Option 2: Word Doc — real <input> overlays the whole card */}
-                  <label className="relative border border-slate-200 bg-white hover:border-blue-400 hover:bg-blue-50/40 rounded-xl p-5 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-3 group shadow-xxs hover:shadow-md">
-                    <input
-                      type="file"
-                      accept=".docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword"
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                      onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          handleFileUpload(e.target.files[0]);
-                        }
-                      }}
-                    />
-                    <div className="w-12 h-12 rounded-full bg-blue-50 group-hover:bg-blue-100 flex items-center justify-center text-blue-600 transition-colors">
-                      <FileSpreadsheet size={24} />
-                    </div>
-                    <div className="space-y-0.5">
-                      <h4 className="text-xs font-bold text-slate-800">2. Upload Word Document</h4>
-                      <p className="text-[9.5px] text-slate-400 leading-normal max-w-[170px] mx-auto">
-                        Compatible with standard Microsoft Word documents
-                      </p>
-                    </div>
-                    <span className="text-[8px] font-bold py-0.5 px-2 bg-blue-50 text-blue-700 rounded-full font-mono">
-                      .doc / .docx
-                    </span>
-                  </label>
-                </div>
-
-                {/* Alternative paste option toggle */}
-                <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9.5px] font-black text-slate-400 uppercase tracking-wider">Fallback Option</span>
-                    <button
-                      type="button"
-                      onClick={() => setShowPasteField(!showPasteField)}
-                      className="text-xxs font-bold text-violet-600 hover:text-violet-800 cursor-pointer hover:underline"
-                    >
-                      {showPasteField ? 'Hide text block' : 'Or paste raw resume text'}
-                    </button>
-                  </div>
-
-                  {showPasteField && (
-                    <div className="space-y-2 animate-fade-in pt-1">
-                      <textarea
-                        rows={4}
-                        placeholder="Paste raw block text or unformatted lists directly here..."
-                        value={rawPastedText}
-                        onChange={(e) => setRawPastedText(e.target.value)}
-                        className="w-full text-xxs px-3 py-2 bg-slate-50 border border-slate-150 rounded-xl focus:border-violet-400 focus:ring-2 focus:ring-violet-200 focus:outline-hidden font-display leading-relaxed text-slate-700"
-                      />
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setShowPasteField(false)}
-                          className="px-3 py-1 hover:bg-slate-50 text-slate-500 rounded-lg text-xxs font-bold"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleImportText}
-                          disabled={rawPastedText.trim().length === 0}
-                          className="px-4 py-1.5 bg-sunset hover:opacity-90 disabled:opacity-40 text-white rounded-lg text-xxs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-                        >
-                          <span>Extract Text Block</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Closing footer */}
-                <div className="flex justify-end pt-2 mt-1">
-                  <button
-                    type="button"
-                    onClick={() => setShowImportDialog(false)}
-                    className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xxs font-bold cursor-pointer"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* AI Resume Import — upload, review, duplicate handling and commit. */}
+      <ResumeImporter
+        open={showImportDialog}
+        language={activeResume?.language || 'en'}
+        onClose={() => setShowImportDialog(false)}
+        onImported={handleImported}
+      />
 
       {/* High-Fidelity Selectable PDF Export Dialog */}
       {showExportModal && (
